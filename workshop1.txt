@@ -1,0 +1,95 @@
+Task 1: Step 2 Architecture Diagram
+
+Layered Architecture
+Controller Layer
+ └── BorrowController
+Service Layer
+ └── BorrowService
+Repository Layer
+ └── BookRepository
+ └── BorrowRepository
+ └── StudentRepository
+
+
+Folder Structure Example
+
+library-system/
+│
+├── controller/
+│     └── BorrowController.java / borrow_handler.go
+          CheckBookController.java
+│
+├── service/
+│     └── BorrowService.java / borrow_service.go
+          CheckBookService
+│
+├── repository/
+│     ├── BookRepository.java / book_reposiotory.go
+│     └── BorrowRepository.java
+      └── StudentRepository.java
+│
+├── model/
+│     ├── Book.java / book.go
+│     └── BorrowRecord.java / borrow_record.go
+      └── Student.java / student.go
+│
+└── main application
+
+
+Task 2: Step 3 Contract
+
+POST /api/borrows or /api/borrowing
+
+{
+  "studentId": "U1001",
+  "bookId": "B2005",
+  "borrowDate": "2026-03-10",
+  "returnDate": "2026-03-15"
+}
+
+
+java
+public interface BorrowService {
+    BorrowRecord borrowBook(String userId, String bookId);
+}
+
+golang
+type BorrowService interface {
+    BorrowBook(userID string, bookID string) (*BorrowRecord, error)
+}
+
+
+Expected Response
+{
+  "borrowId": "BR001",
+  "studentId": "U1001",
+  "bookId": "B2005",
+  "status": "BORROWED",
+  "borrowDate": "2026-03-10",
+  "dueDate": "2026-03-15"
+}
+
+
+
+Table Design
+
+1) student table
+- userId string
+- userName string
+- mobileNo string
+- borrowCount int (<= 5 เล่ม)
+- hasUnpaidBalance bool
+
+2) book table
+- bookId string
+- bookName string
+- availableCopies int 5 (0)
+
+3) borrowBook table
+- borrowId string
+- userId string
+- bookId string
+- borrowDate date
+- dueDate date
+- returnDate date
+- status string (RETURNED, BORROWED, OVERDUE)
