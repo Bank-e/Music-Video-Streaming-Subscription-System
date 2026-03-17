@@ -2,13 +2,23 @@ Task 1: Step 2 Architecture Diagram
 
 Layered Architecture
 Controller Layer
- └── BorrowController
+  ├── UserController
+  ├── AuthController
+  ├── SubscriptionController
+  └── ContentController
 Service Layer
- └── BorrowService
+  ├── UserService
+  ├── AuthService
+  ├── BillingService
+  └── ContentService
 Repository Layer
- └── BookRepository
- └── BorrowRepository
- └── StudentRepository
+  ├── UserRepository
+  ├── SessionRepository
+  ├── PlanRepository
+  ├── SubscriptionRepository
+  ├── PaymentRepository
+  ├── VideoRepository
+  ├── MusicRepository
 
 
 Folder Structure Example
