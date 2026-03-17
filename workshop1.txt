@@ -4,7 +4,7 @@ Layered Architecture
 Controller Layer
   ├── UserController
   ├── AuthController
-  ├── SubscriptionController
+  ├── BillingController
   └── ContentController
 Service Layer
   ├── UserService
@@ -23,27 +23,56 @@ Repository Layer
 
 Folder Structure Example
 
-library-system/
-│
-├── controller/
-│     └── BorrowController.java / borrow_handler.go
-          CheckBookController.java
-│
-├── service/
-│     └── BorrowService.java / borrow_service.go
-          CheckBookService
-│
-├── repository/
-│     ├── BookRepository.java / book_reposiotory.go
-│     └── BorrowRepository.java
-      └── StudentRepository.java
-│
-├── model/
-│     ├── Book.java / book.go
-│     └── BorrowRecord.java / borrow_record.go
-      └── Student.java / student.go
-│
-└── main application
+Streaming-Subscription-System/
+ ├── identity/
+ │    ├── handler/
+ │         ├── UserController.java / user_handler.go
+ │    ├── service/
+ │         ├── UserService.java / user_service.go
+ │    ├── repository/
+ │         ├── UserRepository.java / user_repository.go
+ │    └── domain/
+ │         ├── User.java / user.go
+ │         ├── Profile.java / profile.go
+ │         └── UserPreference.java / user_preference.go
+
+ ├── auth/
+ │    ├── handler/
+ │         ├── AuthController.java / auth_handler.go
+ │    ├── service/
+ │         ├── AuthService.java / auth_service.go
+ │    ├── repository/
+ │         ├── SessionRepository.java / session_repository.go
+ │    └── domain/
+ │         ├── UserSession.java / user_session.go
+ │         └── AccessPrincipal.java / access_principal.go
+
+ ├── billing/
+ │    ├── handler/
+ │         ├── BillingController.java / billing_handler.go
+ │    ├── service/
+ │         ├── BillingService.java / billing_service.go
+ │    ├── repository/
+ │    │    ├── PlanRepository.java / plan_repository.go
+ │    │    ├── SubscriptionRepository.java / subscription_repository.go
+ │    │    └── PaymentRepository.java / payment_repository.go
+ │    └── domain/
+ │         ├── Plan.java / plan.go
+ │         ├── Subscription.java / subscription.go
+ │         ├── Payment.java / payment.go
+ │         └── Enums.java / enums.go
+ └── content/
+      ├── handler/
+           ├── ContentController.java / content_handler.go
+      ├── service/
+           ├── ContentService.java / content_service.go
+      ├── repository/
+      │    ├── VideoRepository.java / video_repository.go
+      │    └── MusicRepository.java / music_repository.go
+      └── domain/
+           ├── Content.java / content.go
+           ├── Video.java / video.go
+           └── Music.java / music.go
 
 
 Task 2: Step 3 Contract
