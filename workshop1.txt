@@ -112,23 +112,77 @@ Expected Response
 
 Table Design
 
-1) student table
-- userId string
-- userName string
-- mobileNo string
-- borrowCount int (<= 5 เล่ม)
-- hasUnpaidBalance bool
+กลุ่ม IDENTITY
+1) users table
+- userId       STRING
+- email        STRING
+- passwordHash STRING
 
-2) book table
-- bookId string
-- bookName string
-- availableCopies int 5 (0)
+2) profiles table
+- userId      STRING
+- displayName STRING
+- avatarUrl   STRING
 
-3) borrowBook table
-- borrowId string
-- userId string
-- bookId string
-- borrowDate date
-- dueDate date
-- returnDate date
-- status string (RETURNED, BORROWED, OVERDUE)
+3) userPreferences table
+- prefId    STRING
+- userId    STRING
+- prefKey   STRING
+- prefValue STRING
+
+
+กลุ่ม AUTH
+4) userSessions table
+- sessionId    STRING
+- userId       STRING
+- accessToken  STRING
+- refreshToken STRING
+- issuedAt     DATE
+- expiresAt    DATE
+
+
+กลุ่ม BILLING
+5) plans table
+- planId        STRING
+- name          STRING
+- tier          STRING
+- price         FLOAT
+- billingCycle  STRING
+- maxDevices    INT
+- maxResolution STRING
+- isActive      BOOLEAN
+
+6) subscriptions table
+- subscriptionId STRING
+- userId         STRING
+- planId         STRING
+- status         STRING
+- startDate      DATE
+- endDate        DATE
+
+7) payments table
+- paymentId             STRING
+- subscriptionId        STRING
+- externalTransactionId STRING
+- status                STRING
+- amount                FLOAT
+- currency              STRING
+- paidAt                DATE
+- deletedAt             DATE
+
+
+กลุ่ม CONTENT
+8) videos table
+- contentId  STRING
+- title      STRING
+- cdnUrl     STRING
+- resolution STRING
+- duration   INT
+- codec      STRING
+
+9) music table
+- contentId STRING
+- title     STRING
+- cdnUrl    STRING
+- artist    STRING
+- bitrate   INT
+- genre     STRING
