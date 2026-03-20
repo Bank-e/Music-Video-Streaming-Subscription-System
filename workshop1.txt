@@ -132,7 +132,7 @@ Expected Response
 2.) GET /api/identity/users/me   //ดึงข้อมูล user ของตัวเอง
 
 Request
-Header: Authorization: Bearer "eyJ..."
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login)
 
 java
 public interface UserService {
@@ -202,7 +202,7 @@ Expected Response
 5.) GET /api/identity/users/me/profile   //ดึงข้อมูล profile สำหรับแสดงบนหน้าจอ เช่น ชื่อและรูปโปรไฟล์
 
 Request
-Header: Authorization: Bearer "eyJ..."
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login)
 
 java
 public interface UserService {
@@ -251,7 +251,7 @@ Expected Response
 7.) GET /api/identity/users/me/preferences   //ดึง preference ทั้งหมดของ user เช่น ภาษา ธีม การเล่นอัตโนมัติ
 
 Request
-Header: Authorization: Bearer "eyJ..."
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login)
 
 java
 public interface UserService {
@@ -274,7 +274,7 @@ Expected Response
 8.) GET /api/identity/users/me/preferences/{prefKey}   //ดึง preference ตาม key ที่ระบุ ใช้ตอนต้องการค่าเดียวเจาะจง
 
 Request
-Header: Authorization: Bearer "eyJ..."
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login)
 
 java
 public interface UserService {
@@ -320,7 +320,7 @@ Expected Response
 10.) DELETE /api/identity/users/me/preferences/{prefKey}   //ลบ preference นั้นออก ใช้ตอน reset settings กลับค่าเริ่มต้น
 
 Request
-Header: Authorization: Bearer "eyJ..."
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login)
 
 java
 public interface UserService {
@@ -332,9 +332,111 @@ type UserService interface {
     RemoveUserPreference(userID string, prefKey string) (bool, error)
 }
 
+Expected Response
 {
   "message": "ลบ preference สำเร็จ"
 }
+
+*****************************************************************************
+
+Auth
+
+11.) POST /api/auth/login   //รับ email และ password แล้วคืน token สำหรับใช้งาน API ทั้งหมด
+
+Request
+{
+  "email": "somchai@gmail.com",
+  "password": "pass123"
+}
+
+java
+public interface AuthService {
+    UserSession login(String email, String password);
+}
+
+golang
+type AuthService interface {
+    Login(email string, password string) (*UserSession, error)
+}
+
+Expected Response
+{
+  "sessionId":    "s-001",
+  "accessToken":  "eyJ...",
+  "refreshToken": "rt_xK9...",
+  "expiresAt":    "2024-01-15T09:15:00"
+}
+
+-----------------------------------------------------------------
+12.) POST /api/auth/logout   //ยกเลิก session ทันที token ที่ใช้อยู่จะใช้งานไม่ได้อีกเลย
+
+Request
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login)
+
+java
+public interface AuthService {
+    boolean logout(String accessToken);
+}
+
+golang
+type AuthService interface {
+    Logout(accessToken string) (bool, error)
+}
+
+Expected Response
+{
+  "message": "logout สำเร็จ"
+}
+
+-----------------------------------------------------------------
+13.) POST /api/auth/refresh   //ขอ token ชุดใหม่โดยใช้ refreshToken token เก่าจะถูกทำลายทันที
+
+Request
+{
+  "refreshToken": "rt_xK9..."  -->  (จาก login)
+}
+
+java
+public interface AuthService {
+    UserSession refresh(String refreshToken);
+}
+
+golang
+type AuthService interface {
+    Refresh(refreshToken string) (*UserSession, error)
+}
+
+Expected Response
+{
+  "sessionId":    "s-002",
+  "accessToken":  "eyJ...ใหม่",
+  "refreshToken": "rt_abc...ใหม่",
+  "expiresAt":    "2024-01-15T10:15:00"
+}
+
+-----------------------------------------------------------------
+14.) GET /api/auth/verify   //ตรวจสอบว่า token ยังใช้งานได้ไหม ในทางปฏิบัติมักใช้เป็น middleware ไม่ใช่ endpoint ตรงๆ
+
+Request
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login หรือ refresh)
+
+java
+public interface AuthService {
+    AccessPrincipal verify(String accessToken);
+}
+
+golang
+type AuthService interface {
+    Verify(accessToken string) (*AccessPrincipal, error)
+}
+
+Expected Response
+{
+  "userId":      "u-001",
+  "permissions": ["upload_content", "watch_content"],
+  "hasActiveSubscription": true
+}
+
 
 
 
