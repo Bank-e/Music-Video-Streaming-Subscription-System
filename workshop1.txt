@@ -102,6 +102,30 @@ Streaming-Subscription-System/
 
 Task 2: Step 3 Contract
 
+ก่อนจะอ่านหลังจากนี้ขอบอกไว้ก่อนว่า ทุก endpoint ต้องมี Authorization header ยกเว้นแค่ 3 เส้นนี้เท่านั้น
+1. POST /api/identity/users     ← สมัครสมาชิก ยังไม่มี token
+2. POST /api/auth/login         ← login ยังไม่มี token
+3. POST /api/billing/payments/webhook ← Stripe/Omise เรียกมา ใช้ Signature แทน
+
+Client ส่ง request มา
+Header: Authorization: Bearer "eyJ..."
+      │
+      ▼
+Middleware ดึง token ออกมาจาก header
+      │
+      ▼
+AuthService.verify("eyJ...")
+      │
+      ├── token หมดอายุ    → ปฏิเสธ 401 Unauthorized
+      ├── token ถูก revoke → ปฏิเสธ 401 Unauthorized
+      │
+      └── token ปกติ → สร้าง AccessPrincipal
+                        { userId: "u-123", ... }
+                              │
+                              ▼
+                        ส่งต่อให้ Controller
+                        และ Service ใช้งานต่อ
+                        
 Identity
 
 1.) POST /api/identity/users   //สมัครสมาชิกใหม่
