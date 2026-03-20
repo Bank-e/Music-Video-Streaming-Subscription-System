@@ -709,6 +709,188 @@ Expected Response
   "status":    "REFUNDED"
 }
 
+*****************************************************************************
+
+Content
+
+25.) GET /api/content/contents   //ดึง content ทั้งหมดสำหรับแสดงหน้า browse ทั้ง Video และ Music
+
+Request
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login หรือ refresh)
+
+java
+public interface ContentService {
+    List<Content> getAllContents();
+}
+
+golang
+type ContentService interface {
+    GetAllContents() ([]*Content, error)
+}
+
+Expected Response
+[
+  {
+    "contentId":  "v-001",
+    "creatorId":  "u-123",
+    "title":      "วันสบายๆ ริมทะเล",
+    "type":       "Video",
+    "resolution": "1080p",
+    "duration":   3600,
+    "codec":      "H.264"
+  },
+  {
+    "contentId": "m-001",
+    "creatorId": "u-456",
+    "title":     "สายลม",
+    "type":      "Music",
+    "artist":    "Bodyslam",
+    "bitrate":   320,
+    "genre":     "Rock"
+  }
+]
+
+-----------------------------------------------------------------
+26.) GET /api/content/contents/{contentId}   //ดึงรายละเอียด content นั้น พร้อม signed URL สำหรับเล่นทันที
+
+Request
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login หรือ refresh)
+Param:  contentId = "v-001"
+
+java
+public interface ContentService {
+    Content getContentById(String contentId, String userId);
+}
+
+golang
+type ContentService interface {
+    GetContentByID(contentID string, userID string) (*Content, error)
+}
+
+Expected Response
+{
+  "contentId":  "v-001",
+  "creatorId":  "u-123",
+  "title":      "วันสบายๆ ริมทะเล",
+  "cdnUrl":     "https://cdn.../v-001.mp4?token=xyz&expires=...",
+  "type":       "Video",
+  "resolution": "1080p",
+  "duration":   3600,
+  "codec":      "H.264"
+}
+
+-----------------------------------------------------------------
+27.) GET /api/content/contents/type/{type}   //กรอง content ตามประเภท ใช้ตอนอยากดูแค่ Video หรือแค่ Music
+
+Request
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login หรือ refresh)
+Param:  type = "Video" หรือ "Music"
+
+java
+public interface ContentService {
+    List<Content> getContentsByType(String type);
+}
+
+golang
+type ContentService interface {
+    GetContentsByType(contentType string) ([]*Content, error)
+}
+
+Expected Response
+[
+  {
+    "contentId":  "v-001",
+    "creatorId":  "u-123",
+    "title":      "วันสบายๆ ริมทะเล",
+    "type":       "Video",
+    "resolution": "1080p",
+    "duration":   3600,
+    "codec":      "H.264"
+  },
+  {
+    "contentId":  "v-002",
+    "creatorId":  "u-456",
+    "title":      "เที่ยวทะเล",
+    "type":       "Video",
+    "resolution": "720p",
+    "duration":   1800,
+    "codec":      "H.265"
+  }
+]
+
+-----------------------------------------------------------------
+28.) GET /api/content/contents/creator/{creatorId}   //ดึง content ทั้งหมดของ creator นั้น ใช้ตอนเปิดหน้าโปรไฟล์ creator
+
+Request
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login หรือ refresh)
+Param:  creatorId = "u-123"
+
+java
+public interface ContentService {
+    List<Content> getContentsByCreatorId(String creatorId);
+}
+
+golang
+type ContentService interface {
+    GetContentsByCreatorID(creatorID string) ([]*Content, error)
+}
+
+Expected Response
+[
+  {
+    "contentId":  "v-001",
+    "creatorId":  "u-123",
+    "title":      "วันสบายๆ ริมทะเล",
+    "type":       "Video",
+    "resolution": "1080p",
+    "duration":   3600,
+    "codec":      "H.264"
+  },
+  {
+    "contentId":  "v-002",
+    "creatorId":  "u-123",
+    "title":      "เที่ยวทะเล",
+    "type":       "Video",
+    "resolution": "720p",
+    "duration":   1800,
+    "codec":      "H.265"
+  }
+]
+
+-----------------------------------------------------------------
+29.) POST /api/content/contents   //สร้าง content record ใหม่ก่อน แล้วค่อยอัปโหลดไฟล์ภายหลัง
+
+Request
+{
+  "title":      "วันสบายๆ ริมทะเล",
+  "type":       "Video",
+  "resolution": "1080p",
+  "duration":   3600,
+  "codec":      "H.264"
+}
+
+java
+public interface ContentService {
+    Content createContent(String userId, String title, String type, Map<String, Object> metadata);
+}
+
+golang
+type ContentService interface {
+    CreateContent(userID string, title string, contentType string, metadata map[string]interface{}) (*Content, error)
+}
+
+Expected Response
+{
+  "contentId":  "v-001",
+  "creatorId":  "u-123",
+  "title":      "วันสบายๆ ริมทะเล",
+  "cdnUrl":     null,
+  "type":       "Video",
+  "resolution": "1080p",
+  "duration":   3600,
+  "codec":      "H.264"
+}
+
 
 
 
