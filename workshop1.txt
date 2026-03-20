@@ -221,6 +221,121 @@ Expected Response
   "avatarUrl": "cdn.example.com/avatars/u-001.jpg"
 }
 
+-----------------------------------------------------------------
+6.) PATCH /api/identity/users/me/profile   //แก้ไขข้อมูล profile เช่น เปลี่ยนชื่อที่แสดงหรือรูปโปรไฟล์
+
+Request
+{
+  "displayName": "สมเพช ใหม่",
+  "avatarUrl": "cdn.example.com/avatars/u-001-new.jpg"
+}
+
+java
+public interface UserService {
+    boolean updateProfile(String userId, String displayName, String avatarUrl);
+}
+
+golang
+type UserService interface {
+    UpdateProfile(userID string, displayName string, avatarUrl string) (bool, error)
+}
+
+Expected Response
+{
+  "userId": "u-001",
+  "displayName": "สมเพช ใหม่",
+  "avatarUrl": "cdn.example.com/avatars/u-001-new.jpg"
+}
+
+-----------------------------------------------------------------
+7.) GET /api/identity/users/me/preferences   //ดึง preference ทั้งหมดของ user เช่น ภาษา ธีม การเล่นอัตโนมัติ
+
+Request
+Header: Authorization: Bearer "eyJ..."
+
+java
+public interface UserService {
+    List<UserPreference> getAllUserPreferences(String userId);
+}
+
+golang
+type UserService interface {
+    GetAllUserPreferences(userID string) ([]*UserPreference, error)
+}
+
+Expected Response
+[
+  { "prefKey": "language",  "prefValue": "th"   },
+  { "prefKey": "theme",     "prefValue": "dark" },
+  { "prefKey": "autoplay",  "prefValue": "true" }
+]
+
+-----------------------------------------------------------------
+8.) GET /api/identity/users/me/preferences/{prefKey}   //ดึง preference ตาม key ที่ระบุ ใช้ตอนต้องการค่าเดียวเจาะจง
+
+Request
+Header: Authorization: Bearer "eyJ..."
+
+java
+public interface UserService {
+    String getUserPreference(String userId, String prefKey);
+}
+
+golang
+type UserService interface {
+    GetUserPreference(userID string, prefKey string) (string, error)
+}
+
+Expected Response
+{
+  "prefKey":   "theme",
+  "prefValue": "dark"
+}
+
+-----------------------------------------------------------------
+9.) PUT /api/identity/users/me/preferences/{prefKey}   //set หรืออัปเดต preference ถ้ามี key อยู่แล้วให้อัปเดต ถ้าไม่มีให้สร้างใหม่
+
+Request
+{
+  "prefValue": "light"
+}
+
+java
+public interface UserService {
+    boolean setUserPreference(String userId, String prefKey, String prefValue);
+}
+
+golang
+type UserService interface {
+    SetUserPreference(userID string, prefKey string, prefValue string) (bool, error)
+}
+
+Expected Response
+{
+  "prefKey":   "theme",
+  "prefValue": "light"
+}
+
+-----------------------------------------------------------------
+10.) DELETE /api/identity/users/me/preferences/{prefKey}   //ลบ preference นั้นออก ใช้ตอน reset settings กลับค่าเริ่มต้น
+
+Request
+Header: Authorization: Bearer "eyJ..."
+
+java
+public interface UserService {
+    boolean removeUserPreference(String userId, String prefKey);
+}
+
+golang
+type UserService interface {
+    RemoveUserPreference(userID string, prefKey string) (bool, error)
+}
+
+{
+  "message": "ลบ preference สำเร็จ"
+}
+
 
 
 Table Design
