@@ -891,6 +891,147 @@ Expected Response
   "codec":      "H.264"
 }
 
+-----------------------------------------------------------------
+30.) PATCH /api/content/contents/{contentId}   //แก้ไขข้อมูล content เฉพาะเจ้าของเท่านั้น
+
+Request
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login หรือ refresh)
+Param:  contentId = "v-001"
+{
+  "title": "วันสบายๆ ริมทะเล (แก้ไขแล้ว)"
+}
+
+java
+public interface ContentService {
+    boolean updateContent(String userId, String contentId, String title);
+}
+
+golang
+type ContentService interface {
+    UpdateContent(userID string, contentID string, title string) (bool, error)
+}
+
+Expected Response
+{
+  "contentId":  "v-001",
+  "creatorId":  "u-123",
+  "title":      "วันสบายๆ ริมทะเล (แก้ไขแล้ว)",
+  "type":       "Video",
+  "resolution": "1080p",
+  "duration":   3600,
+  "codec":      "H.264"
+}
+
+-----------------------------------------------------------------
+31.) DELETE /api/content/contents/{contentId}   /ลบ content ออกจากระบบทั้งไฟล์บน CDN และ record ใน DB เฉพาะเจ้าของเท่านั้น
+
+Request
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login หรือ refresh)
+Param:  contentId = "v-001"
+
+java
+public interface ContentService {
+    boolean deleteContent(String userId, String contentId);
+}
+
+golang
+type ContentService interface {
+    DeleteContent(userID string, contentID string) (bool, error)
+}
+
+Expected Response
+{
+  "message": "ลบ content สำเร็จ"
+}
+
+-----------------------------------------------------------------
+32.) POST /api/content/contents/{contentId}/upload   //อัปโหลดไฟล์จริงขึ้น CDN หลังจากสร้าง content record ไปแล้ว
+
+Request
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login หรือ refresh)
+Param:  contentId = "v-001"
+Body:   multipart/form-data { file: video.mp4 }
+
+java
+public interface ContentService {
+    String uploadContent(String userId, String contentId, MultipartFile file);
+}
+
+golang
+type ContentService interface {
+    UploadContent(userID string, contentID string, file multipart.File) (string, error)
+}
+
+Expected Response
+{
+  "contentId": "v-001",
+  "cdnUrl":    "cdn.example.com/videos/v-001.mp4"
+}
+
+-----------------------------------------------------------------
+33.) POST /api/content/watch-history   //บันทึกการเข้าชม content ทุกครั้งที่ user กดเล่น
+
+Request
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login หรือ refresh)
+{
+  "contentId": "v-001"
+}
+
+java
+public interface WatchHistoryService {
+    WatchHistory recordWatchHistory(String userId, String contentId);
+}
+
+golang
+type WatchHistoryService interface {
+    RecordWatchHistory(userID string, contentID string) (*WatchHistory, error)
+}
+
+Expected Response
+{
+  "historyId":       "h-001",
+  "userId":          "u-123",
+  "contentId":       "v-001",
+  "watchedAt":       "2024-01-15T09:00:00",
+  "watchedDuration": 0
+}
+
+-----------------------------------------------------------------
+34.) GET /api/content/watch-history/me   //ดูประวัติการรับชมทั้งหมดของตัวเอง เรียงจากล่าสุดไปเก่าสุด
+
+Request
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login หรือ refresh)
+
+java
+public interface WatchHistoryService {
+    List<WatchHistory> getWatchHistoryByUserId(String userId);
+}
+
+golang
+type WatchHistoryService interface {
+    GetWatchHistoryByUserID(userID string) ([]*WatchHistory, error)
+}
+
+Expected Response
+[
+  {
+    "historyId":       "h-001",
+    "contentId":       "v-001",
+    "title":           "วันสบายๆ ริมทะเล",
+    "type":            "Video",
+    "watchedAt":       "2024-01-15T09:00:00",
+    "watchedDuration": 3600
+  },
+  {
+    "historyId":       "h-002",
+    "contentId":       "m-001",
+    "title":           "สายลม",
+    "type":            "Music",
+    "watchedAt":       "2024-01-15T10:30:00",
+    "watchedDuration": 180
+  }
+]
+
 
 
 
