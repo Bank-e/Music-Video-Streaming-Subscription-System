@@ -102,35 +102,123 @@ Streaming-Subscription-System/
 
 Task 2: Step 3 Contract
 
-POST /api/borrows or /api/borrowing
+Identity
 
+1.) POST /api/identity/users   //สมัครสมาชิกใหม่
+
+Request
 {
-  "studentId": "U1001",
-  "bookId": "B2005",
-  "borrowDate": "2026-03-10",
-  "returnDate": "2026-03-15"
+  "email": "somchai@gmail.com",
+  "password": "pass123"
 }
 
-
 java
-public interface BorrowService {
-    BorrowRecord borrowBook(String userId, String bookId);
+public interface UserService {
+    User register(String email, String password);
 }
 
 golang
-type BorrowService interface {
-    BorrowBook(userID string, bookID string) (*BorrowRecord, error)
+type UserService interface {
+    Register(email string, password string) (*User, error)
 }
-
 
 Expected Response
 {
-  "borrowId": "BR001",
-  "studentId": "U1001",
-  "bookId": "B2005",
-  "status": "BORROWED",
-  "borrowDate": "2026-03-10",
-  "dueDate": "2026-03-15"
+  "userId": "u-001",
+  "email": "somchai@gmail.com"
+}
+
+-----------------------------------------------------------------
+2.) GET /api/identity/users/me   //ดึงข้อมูล user ของตัวเอง
+
+Request
+Header: Authorization: Bearer "eyJ..."
+
+java
+public interface UserService {
+    User getUserById(String userId);
+}
+
+golang
+type UserService interface {
+    GetUserByID(userID string) (*User, error)
+}
+
+Expected Response
+{
+  "userId": "u-001",
+  "email": "somchai@gmail.com"
+}
+
+-----------------------------------------------------------------
+3.) PATCH /api/identity/users/me/email   //เปลี่ยน email ต้องยืนยันตัวตนผ่าน token ก่อน
+
+Request
+{
+  "newEmail": "somchai.new@gmail.com"
+}
+
+java
+public interface UserService {
+    boolean changeEmail(String userId, String newEmail);
+}
+
+golang
+type UserService interface {
+    ChangeEmail(userID string, newEmail string) (bool, error)
+}
+
+Expected Response
+{
+  "userId": "u-001",
+  "email": "somchai.new@gmail.com"
+}
+
+-----------------------------------------------------------------
+4.) PATCH /api/identity/users/me/password   //เปลี่ยน password ต้องใส่รหัสเดิมก่อนเพื่อยืนยันว่าเป็นเจ้าของจริง
+
+Request
+{
+  "oldPassword": "pass123",
+  "newPassword": "newpass456"
+}
+
+java
+public interface UserService {
+    boolean changePassword(String userId, String oldPassword, String newPassword);
+}
+
+golang
+type UserService interface {
+    ChangePassword(userID string, oldPassword string, newPassword string) (bool, error)
+}
+
+Expected Response
+{
+  "message": "เปลี่ยน password สำเร็จ"
+}
+
+-----------------------------------------------------------------
+5.) GET /api/identity/users/me/profile   //ดึงข้อมูล profile สำหรับแสดงบนหน้าจอ เช่น ชื่อและรูปโปรไฟล์
+
+Request
+Header: Authorization: Bearer "eyJ..."
+
+java
+public interface UserService {
+    Profile getProfileByUserId(String userId);
+}
+
+golang
+type UserService interface {
+    GetProfileByUserID(userID string) (*Profile, error)
+}
+
+Expected Response
+{
+  "userId": "u-001",
+  "displayName": "สมเพช",
+  "avatarUrl": "cdn.example.com/avatars/u-001.jpg"
 }
 
 
