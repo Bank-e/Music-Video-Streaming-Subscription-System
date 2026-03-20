@@ -109,7 +109,7 @@ Task 2: Step 3 Contract
 
 Client ส่ง request มา
 Header: Authorization: Bearer "eyJ..."
-      │
+      │เมื่อย
       ▼
 Middleware ดึง token ออกมาจาก header
       │
@@ -125,7 +125,7 @@ AuthService.verify("eyJ...")
                               ▼
                         ส่งต่อให้ Controller
                         และ Service ใช้งานต่อ
-                        
+
 Identity
 
 1.) POST /api/identity/users   //สมัครสมาชิกใหม่
@@ -1058,81 +1058,100 @@ Expected Response
 
 
 
-
-
 Table Design
 
 กลุ่ม IDENTITY
-1) users table
-- userId       STRING
-- email        STRING
+1) users
+- userId       STRING  PK
+- email        STRING  UNIQUE
 - passwordHash STRING
+- createdAt    TIMESTAMP
 
-2) profiles table
-- userId      STRING
+2) profiles
+- profileId   STRING  PK
+- userId      STRING  FK → users
 - displayName STRING
 - avatarUrl   STRING
 
-3) userPreferences table
-- prefId    STRING
-- userId    STRING
+3) user_preferences
+- prefId    STRING  PK
+- userId    STRING  FK → users
 - prefKey   STRING
 - prefValue STRING
 
 
 กลุ่ม AUTH
-4) userSessions table
-- sessionId    STRING
-- userId       STRING
-- accessToken  STRING
-- refreshToken STRING
-- issuedAt     DATE
-- expiresAt    DATE
+4) user_sessions                      ← มาจาก UserSession
+- sessionId    STRING    PK
+- userId       STRING    FK → users
+- accessToken  TEXT      UNIQUE
+- refreshToken TEXT      UNIQUE
+- expiresAt    TIMESTAMP
+
+INDEX: accessToken  ← ใช้ทุก request
+INDEX: userId       ← ค้นหา session ของ user
+
+[AuthManager]      → ไม่มี table เป็น Service stateless
+[SessionRepository]→ ไม่มี table เป็น Repository คุยกับ user_sessions
+[AccessPrincipal]  → ไม่มี table สร้างใน RAM ชั่วคราวตอน verify()
+                     ดึงข้อมูลจาก user_sessions + subscriptions
 
 
 กลุ่ม BILLING
-5) plans table
-- planId        STRING
-- name          STRING
-- tier          STRING
-- price         FLOAT
-- billingCycle  STRING
-- maxDevices    INT
-- maxResolution STRING
-- isActive      BOOLEAN
+5) plans                              ← มาจาก Plan
+- planId       STRING    PK
+- name         STRING
+- price        FLOAT
+- billingCycle STRING
 
-6) subscriptions table
-- subscriptionId STRING
-- userId         STRING
-- planId         STRING
-- status         STRING
-- startDate      DATE
-- endDate        DATE
+6) subscriptions                      ← มาจาก Subscription
+- subscriptionId STRING    PK
+- userId         STRING    FK → users
+- planId         STRING    FK → plans
+- status         STRING    ← "PENDING" / "ACTIVE" / "EXPIRED" / "CANCELLED"
+- startDate      TIMESTAMP
+- endDate        TIMESTAMP
 
-7) payments table
-- paymentId             STRING
-- subscriptionId        STRING
-- externalTransactionId STRING
-- status                STRING
+[SubscriptionStatus] → ไม่มี table เก็บเป็น status column ใน subscriptions
+                       PENDING / ACTIVE / EXPIRED / CANCELLED
+
+7) payments                           ← มาจาก Payment
+- paymentId             STRING    PK
+- subscriptionId        STRING    FK → subscriptions
+- externalTransactionId STRING    UNIQUE
+- status                STRING    ← "PENDING" / "COMPLETED" / "FAILED" / "REFUNDED"
 - amount                FLOAT
 - currency              STRING
-- paidAt                DATE
-- deletedAt             DATE
+- paidAt                TIMESTAMP
+- deletedAt             TIMESTAMP
+
+[PaymentStatus] → ไม่มี table เก็บเป็น status column ใน payments
+                  PENDING / COMPLETED / FAILED / REFUNDED
 
 
 กลุ่ม CONTENT
-8) videos table
-- contentId  STRING
-- title      STRING
-- cdnUrl     STRING
+8) contents                           ← มาจาก Content (Abstract)
+- contentId STRING    PK
+- creatorId STRING    FK → users
+- type      STRING    ← "Video" หรือ "Music"
+- title     STRING
+- cdnUrl    TEXT
+
+9) videos                             ← มาจาก Video
+- contentId  STRING    PK, FK → contents
 - resolution STRING
 - duration   INT
 - codec      STRING
 
-9) music table
-- contentId STRING
-- title     STRING
-- cdnUrl    STRING
+10) music                             ← มาจาก Music
+- contentId STRING    PK, FK → contents
 - artist    STRING
 - bitrate   INT
 - genre     STRING
+
+11) watch_history                     ← มาจาก WatchHistory
+- historyId       STRING    PK
+- userId          STRING    FK → users
+- contentId       STRING    FK → contents
+- watchedAt       TIMESTAMP
+- watchedDuration INT
