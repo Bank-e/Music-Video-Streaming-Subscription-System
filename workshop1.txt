@@ -437,6 +437,144 @@ Expected Response
   "hasActiveSubscription": true
 }
 
+*****************************************************************************
+
+Billing
+
+15.) GET /api/billing/plans   //ดึง plan ทั้งหมดสำหรับแสดงหน้าเลือก plan ก่อนสมัคร
+
+Request
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login หรือ refresh)
+
+java
+public interface BillingService {
+    List<Plan> getAllPlans();
+}
+
+golang
+type BillingService interface {
+    GetAllPlans() ([]*Plan, error)
+}
+
+Expected Response
+[
+  {
+    "planId":       "p-001",
+    "name":         "Monthly",
+    "price":        199.00,
+    "billingCycle": "monthly"
+  },
+  {
+    "planId":       "p-002",
+    "name":         "Annual",
+    "price":        1990.00,
+    "billingCycle": "annual"
+  }
+]
+
+-----------------------------------------------------------------
+16.) GET /api/billing/plans/{planId}   //ดึงรายละเอียดของ plan นั้นๆ ใช้ตอนต้องการข้อมูลเจาะจง
+
+Request
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login หรือ refresh)
+Param:  planId = "p-001"
+
+java
+public interface BillingService {
+    Plan getPlanById(String planId);
+}
+
+golang
+type BillingService interface {
+    GetPlanByID(planID string) (*Plan, error)
+}
+
+Expected Response
+{
+  "planId":       "p-001",
+  "name":         "Monthly",
+  "price":        199.00,
+  "billingCycle": "monthly"
+}
+
+-----------------------------------------------------------------
+17.) GET /api/billing/subscriptions/me   //ดูสถานะ subscription ปัจจุบันของตัวเอง รวมถึงรายละเอียด plan ที่ใช้อยู่
+
+Request
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login หรือ refresh)
+
+java
+public interface BillingService {
+    Subscription getSubscriptionByUserId(String userId);
+}
+
+golang
+type BillingService interface {
+    GetSubscriptionByUserID(userID string) (*Subscription, error)
+}
+
+Expected Response
+{
+  "subscriptionId": "sub-001",
+  "status":         "ACTIVE",
+  "startDate":      "2024-01-15",
+  "endDate":        "2024-02-15",
+  "currentPlan": {
+    "planId":       "p-001",
+    "name":         "Monthly",
+    "price":        199.00,
+    "billingCycle": "monthly"
+  }
+}
+
+-----------------------------------------------------------------
+18.) POST /api/billing/subscriptions   //สมัคร subscription คืน URL สำหรับ redirect ไปจ่ายเงินที่ Stripe/Omise(ภายนอก)
+
+Request
+{
+  "planId": "p-001"
+}
+
+java
+public interface BillingService {
+    String subscribe(String userId, String planId);
+}
+
+golang
+type BillingService interface {
+    Subscribe(userID string, planID string) (string, error)
+}
+
+Expected Response
+{
+  "subscriptionId": "sub-001",
+  "status":         "PENDING",
+  "checkoutUrl":    "https://checkout.stripe.com/..."
+}
+
+-----------------------------------------------------------------
+19.) POST /api/billing/subscriptions/me/renew   //ต่ออายุ subscription คืน URL สำหรับ redirect ไปจ่ายเงินอีกครั้ง
+
+Request
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login หรือ refresh)
+
+java
+public interface BillingService {
+    String renew(String userId, String subscriptionId);
+}
+
+golang
+type BillingService interface {
+    Renew(userID string, subscriptionID string) (string, error)
+}
+
+Expected Response
+{
+  "subscriptionId": "sub-001",
+  "checkoutUrl":    "https://checkout.stripe.com/..."
+}
+
+
 
 
 
