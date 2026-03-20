@@ -1,78 +1,103 @@
 Task 1: Step 2 Architecture Diagram
 
 Layered Architecture
+
 Controller Layer
-  ├── UserController
-  ├── AuthController
-  ├── BillingController
-  └── ContentController
+  ├── UserController         ← register, changeEmail, changePassword, getUserById
+  ├── AuthController         ← login, logout, refresh, verify
+  ├── BillingController      ← subscribe, renew, cancel, getPlans, getPayments
+  ├── ContentController      ← create, upload, update, delete, getContents
+  └── WatchHistoryController ← recordWatch, getHistory
+
 Service Layer
-  ├── UserService
-  ├── AuthService
-  ├── BillingService
-  └── ContentService
+  ├── UserService           ← business logic ของ User, Profile, UserPreference
+  ├── AuthService           ← business logic ของ AuthManager, UserSession
+  ├── BillingService        ← business logic ของ Subscription, Plan, Payment
+  ├── ContentService        ← business logic ของ Content, Video, Music
+  └── WatchHistoryService   ← business logic ของ WatchHistory
+
 Repository Layer
-  ├── UserRepository
-  ├── SessionRepository
-  ├── PlanRepository
-  ├── SubscriptionRepository
-  ├── PaymentRepository
-  ├── VideoRepository
-  ├── MusicRepository
+  ├── UserRepository        ← query users table
+  ├── ProfileRepository     ← query profiles table
+  ├── UserPreferenceRepository ← query user_preferences table
+  ├── SessionRepository     ← query sessions table
+  ├── PlanRepository        ← query plans table
+  ├── SubscriptionRepository← query subscriptions table
+  ├── PaymentRepository     ← query payments table
+  ├── VideoRepository       ← query contents table WHERE type = Video
+  ├── MusicRepository       ← query contents table WHERE type = Music
+  └── WatchHistoryRepository← query watch_history table
+
+Domain Layer
+  ├── User, Profile, UserPreference
+  ├── UserSession, AccessPrincipal
+  ├── Plan, Subscription, Payment
+  ├── SubscriptionStatus, PaymentStatus
+  ├── Content, Video, Music
+  └── WatchHistory
 
 
 Folder Structure Example
 
 Streaming-Subscription-System/
- ├── identity/
- │    ├── handler/
- │         ├── UserController.java / user_handler.go
- │    ├── service/
- │         ├── UserService.java / user_service.go
- │    ├── repository/
- │         ├── UserRepository.java / user_repository.go
- │    └── domain/
- │         ├── User.java / user.go
- │         ├── Profile.java / profile.go
- │         └── UserPreference.java / user_preference.go
-
- ├── auth/
- │    ├── handler/
- │         ├── AuthController.java / auth_handler.go
- │    ├── service/
- │         ├── AuthService.java / auth_service.go
- │    ├── repository/
- │         ├── SessionRepository.java / session_repository.go
- │    └── domain/
- │         ├── UserSession.java / user_session.go
- │         └── AccessPrincipal.java / access_principal.go
-
- ├── billing/
- │    ├── handler/
- │         ├── BillingController.java / billing_handler.go
- │    ├── service/
- │         ├── BillingService.java / billing_service.go
- │    ├── repository/
- │    │    ├── PlanRepository.java / plan_repository.go
- │    │    ├── SubscriptionRepository.java / subscription_repository.go
- │    │    └── PaymentRepository.java / payment_repository.go
- │    └── domain/
- │         ├── Plan.java / plan.go
- │         ├── Subscription.java / subscription.go
- │         ├── Payment.java / payment.go
- │         └── Enums.java / enums.go
- └── content/
-      ├── handler/
-           ├── ContentController.java / content_handler.go
-      ├── service/
-           ├── ContentService.java / content_service.go
-      ├── repository/
-      │    ├── VideoRepository.java / video_repository.go
-      │    └── MusicRepository.java / music_repository.go
-      └── domain/
-           ├── Content.java / content.go
-           ├── Video.java / video.go
-           └── Music.java / music.go
+│
+├── identity/
+│   ├── handler/
+│   │   └── UserController.java / user_handler.go
+│   ├── service/
+│   │   └── UserService.java / user_service.go
+│   ├── repository/
+│   │   ├── UserRepository.java / user_repository.go
+│   │   ├── ProfileRepository.java / profile_repository.go
+│   │   └── UserPreferenceRepository.java / user_preference_repository.go
+│   └── domain/
+│       ├── User.java / user.go
+│       ├── Profile.java / profile.go
+│       └── UserPreference.java / user_preference.go
+│
+├── auth/
+│   ├── handler/
+│   │   └── AuthController.java / auth_handler.go
+│   ├── service/
+│   │   └── AuthService.java / auth_service.go
+│   ├── repository/
+│   │   └── SessionRepository.java / session_repository.go
+│   └── domain/
+│       ├── UserSession.java / user_session.go
+│       └── AccessPrincipal.java / access_principal.go
+│
+├── billing/
+│   ├── handler/
+│   │   └── BillingController.java / billing_handler.go
+│   ├── service/
+│   │   └── BillingService.java / billing_service.go
+│   ├── repository/
+│   │   ├── PlanRepository.java / plan_repository.go
+│   │   ├── SubscriptionRepository.java / subscription_repository.go
+│   │   └── PaymentRepository.java / payment_repository.go
+│   └── domain/
+│       ├── Plan.java / plan.go
+│       ├── Subscription.java / subscription.go
+│       ├── Payment.java / payment.go
+│       └── Enums.java / enums.go
+│           └── SubscriptionStatus, PaymentStatus
+│
+└── content/
+    ├── handler/
+    │   ├── ContentController.java / content_handler.go
+    │   └── WatchHistoryController.java / watch_history_handler.go
+    ├── service/
+    │   ├── ContentService.java / content_service.go
+    │   └── WatchHistoryService.java / watch_history_service.go
+    ├── repository/
+    │   ├── VideoRepository.java / video_repository.go
+    │   ├── MusicRepository.java / music_repository.go
+    │   └── WatchHistoryRepository.java / watch_history_repository.go
+    └── domain/
+        ├── Content.java / content.go
+        ├── Video.java / video.go
+        ├── Music.java / music.go
+        └── WatchHistory.java / watch_history.go
 
 
 Task 2: Step 3 Contract
