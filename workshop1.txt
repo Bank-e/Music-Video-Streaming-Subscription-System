@@ -574,6 +574,141 @@ Expected Response
   "checkoutUrl":    "https://checkout.stripe.com/..."
 }
 
+-----------------------------------------------------------------
+20.) DELETE /api/billing/subscriptions/me   //ยกเลิก subscription ของตัวเอง status จะเปลี่ยนเป็น CANCELLED ทันที
+
+Request
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login หรือ refresh)
+
+java
+public interface BillingService {
+    boolean cancel(String userId);
+}
+
+golang
+type BillingService interface {
+    Cancel(userID string) (bool, error)
+}
+
+Expected Response
+{
+  "subscriptionId": "sub-001",
+  "status":         "CANCELLED"
+}
+
+-----------------------------------------------------------------
+21.) GET /api/billing/payments   //ดูประวัติการจ่ายเงินทั้งหมดของตัวเอง เรียงจากล่าสุดไปเก่าสุด
+
+Request
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login หรือ refresh)
+
+java
+public interface BillingService {
+    List<Payment> getPaymentsBySubscriptionId(String subscriptionId);
+}
+
+golang
+type BillingService interface {
+    GetPaymentsBySubscriptionID(subscriptionID string) ([]*Payment, error)
+}
+
+Expected Response
+[
+  {
+    "paymentId":             "pay-001",
+    "status":                "COMPLETED",
+    "amount":                199.00,
+    "currency":              "THB",
+    "paidAt":                "2024-01-15T09:00:00"
+  },
+  {
+    "paymentId":             "pay-002",
+    "status":                "FAILED",
+    "amount":                199.00,
+    "currency":              "THB",
+    "paidAt":                null
+  }
+]
+
+-----------------------------------------------------------------
+22.) GET /api/billing/payments/{paymentId}   //ดูรายละเอียดของ payment รายการนั้นเจาะจง
+
+Request
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login หรือ refresh)
+Param:  paymentId = "pay-001"
+
+java
+public interface BillingService {
+    Payment getPaymentById(String paymentId);
+}
+
+golang
+type BillingService interface {
+    GetPaymentByID(paymentID string) (*Payment, error)
+}
+
+Expected Response
+{
+  "paymentId":              "pay-001",
+  "subscriptionId":         "sub-001",
+  "externalTransactionId":  "pi_stripe_abc123",
+  "status":                 "COMPLETED",
+  "amount":                 199.00,
+  "currency":               "THB",
+  "paidAt":                 "2024-01-15T09:00:00"
+}
+
+-----------------------------------------------------------------
+23.) POST /api/billing/payments/webhook   //รับแจ้งผลการจ่ายเงินจาก Stripe/Omise อัตโนมัติ ไม่ได้เรียกโดย user
+โครงสร้างขึ้นอยู่ Body ขึ้นอยู่กับผู้ให้บริการภายนอก
+
+Request
+Header: Stripe-Signature: "t=...,v1=..."  (จากภายนอกเช่นเลขทธุรกรรม)
+Body: {
+  "type": "payment.success",
+  "data": {
+    "externalTransactionId": "pi_stripe_abc123"
+  }
+}
+
+java
+public interface BillingService {
+    boolean handleWebhook(Object payload);
+}
+
+golang
+type BillingService interface {
+    HandleWebhook(payload interface{}) (bool, error)
+}
+
+Expected Response
+{
+  "message": "webhook รับสำเร็จ"
+}
+
+-----------------------------------------------------------------
+24.) POST /api/billing/payments/{paymentId}/refund   //ขอคืนเงินสำหรับ payment ที่ COMPLETED แล้วเท่านั้น
+
+Request
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login หรือ refresh)
+Param:  paymentId = "pay-001"
+
+java
+public interface BillingService {
+    boolean refund(String paymentId);
+}
+
+golang
+type BillingService interface {
+    Refund(paymentID string) (bool, error)
+}
+
+Expected Response
+{
+  "paymentId": "pay-001",
+  "status":    "REFUNDED"
+}
+
 
 
 
