@@ -128,7 +128,7 @@ AuthService.verify("eyJ...")
 
 Identity
 
-1.) POST /api/identity/users   //สมัครสมาชิกใหม่
+1.) POST /api/identity/users   //สมัครสมาชิกใหม่ 
 
 Request
 {
@@ -175,7 +175,7 @@ Expected Response
 }
 
 -----------------------------------------------------------------
-3.) PATCH /api/identity/users/me/email   //เปลี่ยน email ต้องยืนยันตัวตนผ่าน token ก่อน
+X 3.) PATCH /api/identity/users/me/email   //เปลี่ยน email ต้องยืนยันตัวตนผ่าน token ก่อน
 
 Request
 {
@@ -199,7 +199,7 @@ Expected Response
 }
 
 -----------------------------------------------------------------
-4.) PATCH /api/identity/users/me/password   //เปลี่ยน password ต้องใส่รหัสเดิมก่อนเพื่อยืนยันว่าเป็นเจ้าของจริง
+X 4.) PATCH /api/identity/users/me/password   //เปลี่ยน password ต้องใส่รหัสเดิมก่อนเพื่อยืนยันว่าเป็นเจ้าของจริง
 
 Request
 {
@@ -246,7 +246,7 @@ Expected Response
 }
 
 -----------------------------------------------------------------
-6.) PATCH /api/identity/users/me/profile   //แก้ไขข้อมูล profile เช่น เปลี่ยนชื่อที่แสดงหรือรูปโปรไฟล์
+X 6.) PATCH /api/identity/users/me/profile   //แก้ไขข้อมูล profile เช่น เปลี่ยนชื่อที่แสดงหรือรูปโปรไฟล์
 
 Request
 {
@@ -272,7 +272,7 @@ Expected Response
 }
 
 -----------------------------------------------------------------
-7.) GET /api/identity/users/me/preferences   //ดึง preference ทั้งหมดของ user เช่น ภาษา ธีม การเล่นอัตโนมัติ
+X 7.) GET /api/identity/users/me/preferences   //ดึง preference ทั้งหมดของ user เช่น ภาษา ธีม การเล่นอัตโนมัติ
 
 Request
 Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login)
@@ -295,7 +295,7 @@ Expected Response
 ]
 
 -----------------------------------------------------------------
-8.) GET /api/identity/users/me/preferences/{prefKey}   //ดึง preference ตาม key ที่ระบุ ใช้ตอนต้องการค่าเดียวเจาะจง
+X 8.) GET /api/identity/users/me/preferences/{prefKey}   //ดึง preference ตาม key ที่ระบุ ใช้ตอนต้องการค่าเดียวเจาะจง
 
 Request
 Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login)
@@ -317,7 +317,7 @@ Expected Response
 }
 
 -----------------------------------------------------------------
-9.) PUT /api/identity/users/me/preferences/{prefKey}   //set หรืออัปเดต preference ถ้ามี key อยู่แล้วให้อัปเดต ถ้าไม่มีให้สร้างใหม่
+X 9.) PUT /api/identity/users/me/preferences/{prefKey}   //set หรืออัปเดต preference ถ้ามี key อยู่แล้วให้อัปเดต ถ้าไม่มีให้สร้างใหม่
 
 Request
 {
@@ -341,7 +341,7 @@ Expected Response
 }
 
 -----------------------------------------------------------------
-10.) DELETE /api/identity/users/me/preferences/{prefKey}   //ลบ preference นั้นออก ใช้ตอน reset settings กลับค่าเริ่มต้น
+X 10.) DELETE /api/identity/users/me/preferences/{prefKey}   //ลบ preference นั้นออก ใช้ตอน reset settings กลับค่าเริ่มต้น
 
 Request
 Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login)
@@ -392,7 +392,7 @@ Expected Response
 }
 
 -----------------------------------------------------------------
-12.) POST /api/auth/logout   //ยกเลิก session ทันที token ที่ใช้อยู่จะใช้งานไม่ได้อีกเลย
+X 12.) POST /api/auth/logout   //ยกเลิก session ทันที token ที่ใช้อยู่จะใช้งานไม่ได้อีกเลย
 
 Request
 Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login)
@@ -413,7 +413,7 @@ Expected Response
 }
 
 -----------------------------------------------------------------
-13.) POST /api/auth/refresh   //ขอ token ชุดใหม่โดยใช้ refreshToken token เก่าจะถูกทำลายทันที
+? 13.) POST /api/auth/refresh   //ขอ token ชุดใหม่โดยใช้ refreshToken token เก่าจะถูกทำลายทันที
 
 Request
 {
