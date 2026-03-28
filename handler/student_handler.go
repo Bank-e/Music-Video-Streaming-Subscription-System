@@ -19,3 +19,18 @@ func (h *StudentHandler) GetStudents(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, students)
 }
+
+func (h *StudentHandler) GetStudentByID(c *gin.Context) {
+    id, err := strconv.Atoi(c.Param("id"))
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+        return
+    }
+
+    student, err := h.Service.GetStudentByID(uint(id))
+    if err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "student not found"})
+        return
+    }
+    c.JSON(http.StatusOK, student)
+}
