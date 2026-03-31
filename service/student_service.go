@@ -78,5 +78,5 @@ func (s *studentServiceImpl) Delete(id int) error {
 
 // List all students
 func (s *studentServiceImpl) List() ([]model.Student, error) {
-	return s.repo.GetAll()
+	return s.repo.List()
 }
