@@ -1,0 +1,760 @@
+Task 1: Step 2 Architecture Diagram
+
+Layered Architecture
+
+Controller Layer
+  ├── UserController         ← register, changeEmail, changePassword, getUserById
+  ├── AuthController         ← login, logout, refresh, verify
+  ├── BillingController      ← subscribe, renew, cancel, getPlans, getPayments
+  ├── ContentController      ← create, upload, update, delete, getContents
+  └── WatchHistoryController ← recordWatch, getHistory
+
+Service Layer
+  ├── UserService           ← business logic ของ User, Profile, UserPreference
+  ├── AuthService           ← business logic ของ AuthManager, UserSession
+  ├── BillingService        ← business logic ของ Subscription, Plan, Payment
+  ├── ContentService        ← business logic ของ Content, Video, Music
+  └── WatchHistoryService   ← business logic ของ WatchHistory
+
+Repository Layer
+  ├── UserRepository        ← query users table
+  ├── ProfileRepository     ← query profiles table
+  ├── UserPreferenceRepository ← query user_preferences table
+  ├── SessionRepository     ← query sessions table
+  ├── PlanRepository        ← query plans table
+  ├── SubscriptionRepository← query subscriptions table
+  ├── PaymentRepository     ← query payments table
+  ├── VideoRepository       ← query contents table WHERE type = Video
+  ├── MusicRepository       ← query contents table WHERE type = Music
+  └── WatchHistoryRepository← query watch_history table
+
+Domain Layer
+  ├── User, Profile, UserPreference
+  ├── UserSession, AccessPrincipal
+  ├── Plan, Subscription, Payment
+  ├── SubscriptionStatus, PaymentStatus
+  ├── Content, Video, Music
+  └── WatchHistory
+
+
+Folder Structure Example
+
+Streaming-Subscription-System/
+│
+├── identity/
+│   ├── handler/
+│   │   └── UserController.java / user_handler.go
+│   ├── service/
+│   │   └── UserService.java / user_service.go
+│   ├── repository/
+│   │   ├── UserRepository.java / user_repository.go
+│   │   ├── ProfileRepository.java / profile_repository.go
+│   │   └── UserPreferenceRepository.java / user_preference_repository.go
+│   └── domain/
+│       ├── User.java / user.go
+│       ├── Profile.java / profile.go
+│       └── UserPreference.java / user_preference.go
+│
+├── auth/
+│   ├── handler/
+│   │   └── AuthController.java / auth_handler.go
+│   ├── service/
+│   │   └── AuthService.java / auth_service.go
+│   ├── repository/
+│   │   └── SessionRepository.java / session_repository.go
+│   └── domain/
+│       ├── UserSession.java / user_session.go
+│       └── AccessPrincipal.java / access_principal.go
+│
+├── billing/
+│   ├── handler/
+│   │   └── BillingController.java / billing_handler.go
+│   ├── service/
+│   │   └── BillingService.java / billing_service.go
+│   ├── repository/
+│   │   ├── PlanRepository.java / plan_repository.go
+│   │   ├── SubscriptionRepository.java / subscription_repository.go
+│   │   └── PaymentRepository.java / payment_repository.go
+│   └── domain/
+│       ├── Plan.java / plan.go
+│       ├── Subscription.java / subscription.go
+│       ├── Payment.java / payment.go
+│       └── Enums.java / enums.go
+│           └── SubscriptionStatus, PaymentStatus
+│
+└── content/
+    ├── handler/
+    │   ├── ContentController.java / content_handler.go
+    │   └── WatchHistoryController.java / watch_history_handler.go
+    ├── service/
+    │   ├── ContentService.java / content_service.go
+    │   └── WatchHistoryService.java / watch_history_service.go
+    ├── repository/
+    │   ├── VideoRepository.java / video_repository.go
+    │   ├── MusicRepository.java / music_repository.go
+    │   └── WatchHistoryRepository.java / watch_history_repository.go
+    └── domain/
+        ├── Content.java / content.go
+        ├── Video.java / video.go
+        ├── Music.java / music.go
+        └── WatchHistory.java / watch_history.go
+
+
+Task 2: Step 3 Contract
+
+ก่อนจะอ่านหลังจากนี้ขอบอกไว้ก่อนว่า ทุก endpoint ต้องมี Authorization header ยกเว้นแค่ 3 เส้นนี้เท่านั้น
+1. POST /api/identity/users     ← สมัครสมาชิก ยังไม่มี token
+2. POST /api/auth/login         ← login ยังไม่มี token
+3. POST /api/billing/payments/webhook ← Stripe/Omise เรียกมา ใช้ Signature แทน
+
+Client ส่ง request มา
+Header: Authorization: Bearer "eyJ..."
+      │เมื่อย
+      ▼
+Middleware ดึง token ออกมาจาก header
+      │
+      ▼
+AuthService.verify("eyJ...")
+      │
+      ├── token หมดอายุ    → ปฏิเสธ 401 Unauthorized
+      ├── token ถูก revoke → ปฏิเสธ 401 Unauthorized
+      │
+      └── token ปกติ → สร้าง AccessPrincipal
+                        { userId: "u-123", ... }
+                              │
+                              ▼
+                        ส่งต่อให้ Controller
+                        และ Service ใช้งานต่อ
+
+Identity
+
+1.) POST /api/identity/users   //สมัครสมาชิกใหม่ 
+
+Request
+{
+  "email": "somchai@gmail.com",
+  "password": "pass123"
+}
+
+java
+public interface UserService {
+    User register(String email, String password);
+}
+
+golang
+type UserService interface {
+    Register(email string, password string) (*User, error)
+}
+
+Expected Response
+{
+  "userId": "u-001",
+  "email": "somchai@gmail.com"
+}
+
+-----------------------------------------------------------------
+2.) GET /api/identity/users/me   //ดึงข้อมูล user ของตัวเอง
+
+Request
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login)
+
+java
+public interface UserService {
+    User getUserById(String userId);
+}
+
+golang
+type UserService interface {
+    GetUserByID(userID string) (*User, error)
+}
+
+Expected Response
+{
+  "userId": "u-001",
+  "email": "somchai@gmail.com"
+}
+-----------------------------------------------------------------
+3.) GET /api/identity/users/me/profile   //ดึงข้อมูล profile สำหรับแสดงบนหน้าจอ เช่น ชื่อและรูปโปรไฟล์
+
+Request
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login)
+
+java
+public interface UserService {
+    Profile getProfileByUserId(String userId);
+}
+
+golang
+type UserService interface {
+    GetProfileByUserID(userID string) (*Profile, error)
+}
+
+Expected Response
+{
+  "userId": "u-001",
+  "displayName": "สมเพช",
+  "avatarUrl": "cdn.example.com/avatars/u-001.jpg"
+}
+
+*****************************************************************************
+Auth
+
+4.) POST /api/auth/login   //รับ email และ password แล้วคืน token สำหรับใช้งาน API ทั้งหมด
+
+Request
+{
+  "email": "somchai@gmail.com",
+  "password": "pass123"
+}
+
+java
+public interface AuthService {
+    UserSession login(String email, String password);
+}
+
+golang
+type AuthService interface {
+    Login(email string, password string) (*UserSession, error)
+}
+
+Expected Response
+{
+  "sessionId":    "s-001",
+  "accessToken":  "eyJ...",
+  "refreshToken": "rt_xK9...",
+  "expiresAt":    "2024-01-15T09:15:00"
+}
+
+-----------------------------------------------------------------
+5.) GET /api/auth/verify   //ตรวจสอบว่า token ยังใช้งานได้ไหม ในทางปฏิบัติมักใช้เป็น middleware ไม่ใช่ endpoint ตรงๆ
+
+Request
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login หรือ refresh)
+
+java
+public interface AuthService {
+    AccessPrincipal verify(String accessToken);
+}
+
+golang
+type AuthService interface {
+    Verify(accessToken string) (*AccessPrincipal, error)
+}
+
+Expected Response
+{
+  "userId":      "u-001",
+  "permissions": ["upload_content", "watch_content"],
+  "hasActiveSubscription": true
+}
+
+*****************************************************************************
+Billing
+
+6.) GET /api/billing/plans   //ดึง plan ทั้งหมดสำหรับแสดงหน้าเลือก plan ก่อนสมัคร
+
+Request
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login หรือ refresh)
+
+java
+public interface BillingService {
+    List<Plan> getAllPlans();
+}
+
+golang
+type BillingService interface {
+    GetAllPlans() ([]*Plan, error)
+}
+
+Expected Response
+[
+  {
+    "planId":       "p-001",
+    "name":         "Monthly",
+    "price":        199.00,
+    "billingCycle": "monthly"
+  },
+  {
+    "planId":       "p-002",
+    "name":         "Annual",
+    "price":        1990.00,
+    "billingCycle": "annual"
+  }
+]
+
+-----------------------------------------------------------------
+7.) GET /api/billing/plans/{planId}   //ดึงรายละเอียดของ plan นั้นๆ ใช้ตอนต้องการข้อมูลเจาะจง
+
+Request
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login หรือ refresh)
+Param:  planId = "p-001"
+
+java
+public interface BillingService {
+    Plan getPlanById(String planId);
+}
+
+golang
+type BillingService interface {
+    GetPlanByID(planID string) (*Plan, error)
+}
+
+Expected Response
+{
+  "planId":       "p-001",
+  "name":         "Monthly",
+  "price":        199.00,
+  "billingCycle": "monthly"
+}
+
+-----------------------------------------------------------------
+8.) GET /api/billing/subscriptions/me   //ดูสถานะ subscription ปัจจุบันของตัวเอง รวมถึงรายละเอียด plan ที่ใช้อยู่
+
+Request
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login หรือ refresh)
+
+java
+public interface BillingService {
+    Subscription getSubscriptionByUserId(String userId);
+}
+
+golang
+type BillingService interface {
+    GetSubscriptionByUserID(userID string) (*Subscription, error)
+}
+
+Expected Response
+{
+  "subscriptionId": "sub-001",
+  "status":         "ACTIVE",
+  "startDate":      "2024-01-15",
+  "endDate":        "2024-02-15",
+  "currentPlan": {
+    "planId":       "p-001",
+    "name":         "Monthly",
+    "price":        199.00,
+    "billingCycle": "monthly"
+  }
+}
+
+-----------------------------------------------------------------
+9.) POST /api/billing/subscriptions   //สมัคร subscription คืน URL สำหรับ redirect ไปจ่ายเงินที่ Stripe/Omise(ภายนอก)
+
+Request
+{
+  "planId": "p-001"
+}
+
+java
+public interface BillingService {
+    String subscribe(String userId, String planId);
+}
+
+golang
+type BillingService interface {
+    Subscribe(userID string, planID string) (string, error)
+}
+
+Expected Response
+{
+  "subscriptionId": "sub-001",
+  "status":         "PENDING",
+  "checkoutUrl":    "https://checkout.stripe.com/..."
+}
+
+-----------------------------------------------------------------
+10.) POST /api/billing/subscriptions/me/renew   //ต่ออายุ subscription คืน URL สำหรับ redirect ไปจ่ายเงินอีกครั้ง
+
+Request
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login หรือ refresh)
+
+java
+public interface BillingService {
+    String renew(String userId, String subscriptionId);
+}
+
+golang
+type BillingService interface {
+    Renew(userID string, subscriptionID string) (string, error)
+}
+
+Expected Response
+{
+  "subscriptionId": "sub-001",
+  "checkoutUrl":    "https://checkout.stripe.com/..."
+}
+
+-----------------------------------------------------------------
+11.) DELETE /api/billing/subscriptions/me   //ยกเลิก subscription ของตัวเอง status จะเปลี่ยนเป็น CANCELLED ทันที
+
+Request
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login หรือ refresh)
+
+java
+public interface BillingService {
+    boolean cancel(String userId);
+}
+
+golang
+type BillingService interface {
+    Cancel(userID string) (bool, error)
+}
+
+Expected Response
+{
+  "subscriptionId": "sub-001",
+  "status":         "CANCELLED"
+}
+
+-----------------------------------------------------------------
+12.) POST /api/billing/payments/webhook   //รับแจ้งผลการจ่ายเงินจาก Stripe/Omise อัตโนมัติ ไม่ได้เรียกโดย user
+โครงสร้างขึ้นอยู่ Body ขึ้นอยู่กับผู้ให้บริการภายนอก
+
+Request
+Header: Stripe-Signature: "t=...,v1=..."  (จากภายนอกเช่นเลขทธุรกรรม)
+Body: {
+  "type": "payment.success",
+  "data": {
+    "externalTransactionId": "pi_stripe_abc123"
+  }
+}
+
+java
+public interface BillingService {
+    boolean handleWebhook(Object payload);
+}
+
+golang
+type BillingService interface {
+    HandleWebhook(payload interface{}) (bool, error)
+}
+
+Expected Response
+{
+  "message": "webhook รับสำเร็จ"
+}
+
+*****************************************************************************
+Content
+
+13.) GET /api/content/contents   //ดึง content ทั้งหมดสำหรับแสดงหน้า browse ทั้ง Video และ Music
+
+Request
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login หรือ refresh)
+
+java
+public interface ContentService {
+    List<Content> getAllContents();
+}
+
+golang
+type ContentService interface {
+    GetAllContents() ([]*Content, error)
+}
+
+Expected Response
+[
+  {
+    "contentId":  "v-001",
+    "creatorId":  "u-123",
+    "title":      "วันสบายๆ ริมทะเล",
+    "type":       "Video",
+    "resolution": "1080p",
+    "duration":   3600,
+    "codec":      "H.264"
+  },
+  {
+    "contentId": "m-001",
+    "creatorId": "u-456",
+    "title":     "สายลม",
+    "type":      "Music",
+    "artist":    "Bodyslam",
+    "bitrate":   320,
+    "genre":     "Rock"
+  }
+]
+
+-----------------------------------------------------------------
+14.) GET /api/content/contents/{contentId}   //ดึงรายละเอียด content นั้น พร้อม signed URL สำหรับเล่นทันที
+
+Request
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login หรือ refresh)
+Param:  contentId = "v-001"
+
+java
+public interface ContentService {
+    Content getContentById(String contentId, String userId);
+}
+
+golang
+type ContentService interface {
+    GetContentByID(contentID string, userID string) (*Content, error)
+}
+
+Expected Response
+{
+  "contentId":  "v-001",
+  "creatorId":  "u-123",
+  "title":      "วันสบายๆ ริมทะเล",
+  "cdnUrl":     "https://cdn.../v-001.mp4?token=xyz&expires=...",
+  "type":       "Video",
+  "resolution": "1080p",
+  "duration":   3600,
+  "codec":      "H.264"
+}
+
+-----------------------------------------------------------------
+15.) GET /api/content/contents/type/{type}   //กรอง content ตามประเภท ใช้ตอนอยากดูแค่ Video หรือแค่ Music
+
+Request
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login หรือ refresh)
+Param:  type = "Video" หรือ "Music"
+
+java
+public interface ContentService {
+    List<Content> getContentsByType(String type);
+}
+
+golang
+type ContentService interface {
+    GetContentsByType(contentType string) ([]*Content, error)
+}
+
+Expected Response
+[
+  {
+    "contentId":  "v-001",
+    "creatorId":  "u-123",
+    "title":      "วันสบายๆ ริมทะเล",
+    "type":       "Video",
+    "resolution": "1080p",
+    "duration":   3600,
+    "codec":      "H.264"
+  },
+  {
+    "contentId":  "v-002",
+    "creatorId":  "u-456",
+    "title":      "เที่ยวทะเล",
+    "type":       "Video",
+    "resolution": "720p",
+    "duration":   1800,
+    "codec":      "H.265"
+  }
+]
+
+-----------------------------------------------------------------
+16.) GET /api/content/contents/creator/{creatorId}   //ดึง content ทั้งหมดของ creator นั้น ใช้ตอนเปิดหน้าโปรไฟล์ creator
+
+Request
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login หรือ refresh)
+Param:  creatorId = "u-123"
+
+java
+public interface ContentService {
+    List<Content> getContentsByCreatorId(String creatorId);
+}
+
+golang
+type ContentService interface {
+    GetContentsByCreatorID(creatorID string) ([]*Content, error)
+}
+
+Expected Response
+[
+  {
+    "contentId":  "v-001",
+    "creatorId":  "u-123",
+    "title":      "วันสบายๆ ริมทะเล",
+    "type":       "Video",
+    "resolution": "1080p",
+    "duration":   3600,
+    "codec":      "H.264"
+  },
+  {
+    "contentId":  "v-002",
+    "creatorId":  "u-123",
+    "title":      "เที่ยวทะเล",
+    "type":       "Video",
+    "resolution": "720p",
+    "duration":   1800,
+    "codec":      "H.265"
+  }
+]
+
+-----------------------------------------------------------------
+17.) POST /api/content/contents   //สร้าง content record ใหม่ก่อน แล้วค่อยอัปโหลดไฟล์ภายหลัง
+
+Request
+{
+  "title":      "วันสบายๆ ริมทะเล",
+  "type":       "Video",
+  "resolution": "1080p",
+  "duration":   3600,
+  "codec":      "H.264"
+}
+
+java
+public interface ContentService {
+    Content createContent(String userId, String title, String type, Map<String, Object> metadata);
+}
+
+golang
+type ContentService interface {
+    CreateContent(userID string, title string, contentType string, metadata map[string]interface{}) (*Content, error)
+}
+
+Expected Response
+{
+  "contentId":  "v-001",
+  "creatorId":  "u-123",
+  "title":      "วันสบายๆ ริมทะเล",
+  "cdnUrl":     null,
+  "type":       "Video",
+  "resolution": "1080p",
+  "duration":   3600,
+  "codec":      "H.264"
+}
+
+-----------------------------------------------------------------
+18.) DELETE /api/content/contents/{contentId}   /ลบ content ออกจากระบบทั้งไฟล์บน CDN และ record ใน DB เฉพาะเจ้าของเท่านั้น
+
+Request
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login หรือ refresh)
+Param:  contentId = "v-001"
+
+java
+public interface ContentService {
+    boolean deleteContent(String userId, String contentId);
+}
+
+golang
+type ContentService interface {
+    DeleteContent(userID string, contentID string) (bool, error)
+}
+
+Expected Response
+{
+  "message": "ลบ content สำเร็จ"
+}
+
+-----------------------------------------------------------------
+19.) POST /api/content/contents/{contentId}/upload   //อัปโหลดไฟล์จริงขึ้น CDN หลังจากสร้าง content record ไปแล้ว
+
+Request
+Header: Authorization: Bearer "eyJ..."    -->  ("accessToken" จาก login หรือ refresh)
+Param:  contentId = "v-001"
+Body:   multipart/form-data { file: video.mp4 }
+
+java
+public interface ContentService {
+    String uploadContent(String userId, String contentId, MultipartFile file);
+}
+
+golang
+type ContentService interface {
+    UploadContent(userID string, contentID string, file multipart.File) (string, error)
+}
+
+Expected Response
+{
+  "contentId": "v-001",
+  "cdnUrl":    "cdn.example.com/videos/v-001.mp4"
+}
+
+Table Design
+
+กลุ่ม IDENTITY
+1) users
+- userId       STRING  PK
+- email        STRING  UNIQUE
+- passwordHash STRING
+- createdAt    TIMESTAMP
+
+2) profiles
+- profileId   STRING  PK
+- userId      STRING  FK → users
+- displayName STRING
+- avatarUrl   STRING
+
+3) user_preferences
+- prefId    STRING  PK
+- userId    STRING  FK → users
+- prefKey   STRING
+- prefValue STRING
+
+
+กลุ่ม AUTH
+4) user_sessions                      ← มาจาก UserSession
+- sessionId    STRING    PK
+- userId       STRING    FK → users
+- accessToken  TEXT      UNIQUE
+- refreshToken TEXT      UNIQUE
+- expiresAt    TIMESTAMP
+
+INDEX: accessToken  ← ใช้ทุก request
+INDEX: userId       ← ค้นหา session ของ user
+
+[AuthManager]      → ไม่มี table เป็น Service stateless
+[SessionRepository]→ ไม่มี table เป็น Repository คุยกับ user_sessions
+[AccessPrincipal]  → ไม่มี table สร้างใน RAM ชั่วคราวตอน verify()
+                     ดึงข้อมูลจาก user_sessions + subscriptions
+
+
+กลุ่ม BILLING
+5) plans                              ← มาจาก Plan
+- planId       STRING    PK
+- name         STRING
+- price        FLOAT
+- billingCycle STRING
+
+6) subscriptions                      ← มาจาก Subscription
+- subscriptionId STRING    PK
+- userId         STRING    FK → users
+- planId         STRING    FK → plans
+- status         STRING    ← "PENDING" / "ACTIVE" / "EXPIRED" / "CANCELLED"
+- startDate      TIMESTAMP
+- endDate        TIMESTAMP
+
+[SubscriptionStatus] → ไม่มี table เก็บเป็น status column ใน subscriptions
+                       PENDING / ACTIVE / EXPIRED / CANCELLED
+
+7) payments                           ← มาจาก Payment
+- paymentId             STRING    PK
+- subscriptionId        STRING    FK → subscriptions
+- externalTransactionId STRING    UNIQUE
+- status                STRING    ← "PENDING" / "COMPLETED" / "FAILED" / "REFUNDED"
+- amount                FLOAT
+- currency              STRING
+- paidAt                TIMESTAMP
+- deletedAt             TIMESTAMP
+
+[PaymentStatus] → ไม่มี table เก็บเป็น status column ใน payments
+                  PENDING / COMPLETED / FAILED / REFUNDED
+
+
+กลุ่ม CONTENT
+8) contents                           ← มาจาก Content (Abstract)
+- contentId STRING    PK
+- creatorId STRING    FK → users
+- type      STRING    ← "Video" หรือ "Music"
+- title     STRING
+- cdnUrl    TEXT
+
+9) videos                             ← มาจาก Video
+- contentId  STRING    PK, FK → contents
+- resolution STRING
+- duration   INT
+- codec      STRING
+
+10) music                             ← มาจาก Music
+- contentId STRING    PK, FK → contents
+- artist    STRING
+- bitrate   INT
+- genre     STRING
+
+11) watch_history                     ← มาจาก WatchHistory
+- historyId       STRING    PK
+- userId          STRING    FK → users
+- contentId       STRING    FK → contents
+- watchedAt       TIMESTAMP
+- watchedDuration INT
