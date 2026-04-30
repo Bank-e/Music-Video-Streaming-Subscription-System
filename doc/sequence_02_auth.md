@@ -101,7 +101,7 @@ sequenceDiagram
 
   Note over AM: 1. ตรวจสอบความถูกต้องของ Token ก่อน
   AM->>AM: verify(refreshToken, SecretKey)
-  alt Signature ผิด / หมดอายุ (30 วัน)
+  alt Signature ผิด / หมดอายุ
     AM-->>API: InvalidTokenError
     API-->>Client: 401 Unauthorized (Force Re-login)
   else Token ถูกต้อง
