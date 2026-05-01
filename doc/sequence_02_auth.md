@@ -4,164 +4,210 @@
 
 ```mermaid
 sequenceDiagram
-  actor Client
-  participant API as API Gateway
-  participant AM as AuthManager
-  participant SS as SubscriptionService
-  participant DB as Database
-  participant Cache as Redis Cache
+    autonumber
+    actor Client
+    participant API as API Gateway
+    participant AM as AuthManager
+    participant SS as SubscriptionService
+    participant DB as Database
+    participant Cache as Redis Cache
 
-  Client->>API: POST /login {email, pass}
-  API->>AM: login(email, pass)
-  AM->>DB: SELECT userId, passwordHash FROM users WHERE email=?
+    Note over Client,API: Login เข้าสู่ระบบ
 
-  alt ไม่พบ user
-    DB-->>AM: empty
-    AM-->>API: InvalidCredentialError
-    API-->>Client: 401 Unauthorized
-  else พบ user
-    DB-->>AM: user
-    alt bcrypt.compare(pass, passwordHash) = false
-      AM-->>API: InvalidCredentialError
-      API-->>Client: 401 Unauthorized
-    else รหัสผ่านถูกต้อง
-      AM->>SS: getSubscriptionByUserId(userId)
-      SS->>DB: SELECT status, endDate FROM subscriptions WHERE userId=?
-      DB-->>SS: sub (or null)
-      SS-->>AM: sub
-      AM->>AM: hasActiveSub = (sub.status=ACTIVE && sub.endDate > now)
+    Client->>API: POST /login {email, password}
+    API->>AM: login(email, password)
 
-      Note over AM: 1. สร้าง Access Token (อายุ 15 นาที + ฝัง jti เพื่อทำ Blacklist)
-      AM->>AM: claims = {jti=uuid, sub=userId, hasActiveSubscription, exp=now+15m}
-      AM->>AM: accessToken = JWT.sign(claims, HS256)
+    Note over AM,DB: ตรวจสอบผู้ใช้
+    AM->>DB: Get user by email
+    DB-->>AM: user / not found
 
-      Note over AM: 2. สร้าง Refresh Token เป็น JWT (อายุ 15 วัน + ฝัง userId)
-      AM->>AM: refreshToken = JWT.sign({sub=userId, exp=now+15d}, SecretKey)
-      AM->>AM: hashedRT = hash(refreshToken)
+    alt ไม่พบ user
+        AM-->>API: InvalidCredentialError
+        API-->>Client: 401 Unauthorized {error}
+    else พบ user
+        Note over AM: ตรวจสอบรหัสผ่าน
+        AM->>AM: compare(password, passwordHash)
 
-      Note over AM,Cache: 3. เก็บ Hash ของ Refresh Token ลง Redis (ใช้ Key ให้ตรงกับตอน Refresh)
-      AM->>Cache: SET user:{userId}:active_refresh_token {hashedRT} EX 2592000
+        alt รหัสผ่านไม่ถูกต้อง
+            AM-->>API: InvalidCredentialError
+            API-->>Client: 401 Unauthorized {error}
+        else รหัสผ่านถูกต้อง
 
-      AM-->>API: {accessToken, refreshToken}
-      API-->>Client: 200 OK {accessToken, refreshToken}
+            Note over AM,SS: ตรวจสอบสถานะ Subscription
+            AM->>SS: getSubscription(userId)
+            SS->>DB: Query subscription by userId
+            DB-->>SS: subscription / null
+            SS-->>AM: subscription
+
+            AM->>AM: hasActiveSub = (status=ACTIVE && endDate > now)
+
+            Note over AM: สร้าง Access Token (อายุ 15 นาที)
+            AM->>AM: create accessToken (JWT with jti, userId, hasActiveSub)
+
+            Note over AM: สร้าง Refresh Token (อายุ 15 วัน)
+            AM->>AM: create refreshToken (JWT)
+            AM->>AM: hash(refreshToken)
+
+            Note over AM,Cache: เก็บ Refresh Token ลง Redis
+            AM->>Cache: SET user:{userId}:refresh_token (hashed) EX 15d
+            Cache-->>AM: OK
+
+            AM-->>API: {accessToken, refreshToken}
+            API-->>Client: 200 OK {accessToken, refreshToken}
+        end
     end
-  end
 ```
 
 ## 2.2 Token Verification Middleware (FR 2.4)
 
 ```mermaid
 sequenceDiagram
-  actor Client
-  participant API as Middleware
-  participant AM as AuthManager
-  participant Cache as Redis Cache
-  participant H as Handler
+    autonumber
+    actor Client
+    participant API as Middleware (API Gateway)
+    participant AM as AuthManager
+    participant Cache as Redis Cache
+    participant H as Handler
 
-  Client->>API: any protected request + Authorization: Bearer <token>
-  API->>AM: verify(accessToken)
+    Note over Client,API: เรียก API ที่ต้องใช้ Authentication
 
-  Note over AM: 1. ตรวจสอบลายเซ็น (Signature) และ Expiration ก่อนเสมอ
-  alt signature invalid
-    AM-->>API: SignatureError
-    API-->>Client: 401 Unauthorized
-  else exp < now
-    AM-->>API: TokenExpiredError
-    API-->>Client: 401 Unauthorized
-  else valid (Token ของจริงและยังไม่หมดอายุ)
-    Note over AM: 2. เมื่อมั่นใจว่าเป็น Token แท้ ค่อยแกะ jti ไปถาม Redis
-    AM->>AM: extract jti, claims
-    AM->>Cache: EXISTS blacklist:token:{jti}
-    Cache-->>AM: result (0 or 1)
+    Client->>API: Request + Authorization: Bearer <accessToken>
 
-    alt result = 1 (อยู่ใน Blacklist)
-      AM-->>API: TokenRevokedError
-      API-->>Client: 401 Unauthorized
-    else result = 0 (ใช้งานได้ปกติ)
-      AM-->>API: AccessPrincipal(userId, hasActiveSubscription)
-      API->>H: handle(principal, requestBody)
-      H-->>API: result
-      API-->>Client: 200 OK
+    API->>AM: verifyToken(accessToken)
+
+    Note over AM: ตรวจสอบ Signature และ Expiration ก่อน
+
+    alt ลายเซ็นไม่ถูกต้อง (Signature invalid)
+        AM-->>API: SignatureError
+        API-->>Client: 401 Unauthorized {error}
+    else token หมดอายุ (exp < now)
+        AM-->>API: TokenExpiredError
+        API-->>Client: 401 Unauthorized {error}
+    else token ถูกต้อง
+        Note over AM: ดึงข้อมูลจาก token (claims, jti)
+        AM->>AM: extract claims (userId, jti, roles, etc.)
+
+        AM->>Cache: Check blacklist by jti
+        Cache-->>AM: found / not found
+
+        alt token ถูก revoke (อยู่ใน blacklist)
+            AM-->>API: TokenRevokedError
+            API-->>Client: 401 Unauthorized {error}
+        else token ใช้งานได้
+            AM-->>API: principal (userId, roles, permissions)
+
+            API->>H: handleRequest(principal, request)
+            H-->>API: response
+
+            API-->>Client: 200 OK {data}
+        end
     end
-  end
 ```
 
 ## 2.3 Refresh Token (FR 2.3)
 
 ```mermaid
 sequenceDiagram
-  actor Client
-  participant API as API Gateway
-  participant AM as AuthManager
-  participant SS as SubscriptionService
-  participant Cache as Redis Cache
+    autonumber
+    actor Client
+    participant API as API Gateway
+    participant AM as AuthManager
+    participant SS as SubscriptionService
+    participant Cache as Redis Cache
 
-  Client->>API: POST /refresh {refreshToken}
-  API->>AM: refresh(refreshToken)
+    Note over Client,API: ขอ Access Token ใหม่ด้วย Refresh Token
 
-  Note over AM: 1. ตรวจสอบความถูกต้องของ Token ก่อน
-  AM->>AM: verify(refreshToken, SecretKey)
-  alt Signature ผิด / หมดอายุ
-    AM-->>API: InvalidTokenError
-    API-->>Client: 401 Unauthorized (Force Re-login)
-  else Token ถูกต้อง
-    Note over AM: 2. แกะข้อมูล userId ออกมาจาก Payload ของ Refresh Token
-    AM->>AM: decode -> extract userId
-    AM->>AM: hashedInputRT = hash(refreshToken)
+    Client->>API: POST /refresh {refreshToken}
+    API->>AM: refresh(refreshToken)
 
-    Note over AM,Cache: 3. เช็กกับ Redis ว่า Token นี้คือตัวล่าสุดของ User คนนี้ใช่ไหม
-    AM->>Cache: GET user:{userId}:active_refresh_token
-    Cache-->>AM: storedHashedRT
+    Note over AM: ตรวจสอบความถูกต้องของ Refresh Token
 
-    alt storedHashedRT != hashedInputRT หรือไม่พบ
-      Note over AM: ตรวจพบคนแอบนำ Token เก่ามาใช้ (Reuse Detection)
-      AM->>Cache: DEL user:{userId}:active_refresh_token (แบนทุกอุปกรณ์)
-      AM-->>API: RevokedTokenError
-      API-->>Client: 401 Unauthorized (Force Re-login)
-    else ตรงกัน (Valid)
-      AM->>SS: getSubscriptionByUserId(userId)
-      SS-->>AM: sub
-      AM->>AM: recompute hasActiveSubscription
+    AM->>AM: verify(refreshToken)
 
-      Note over AM: 4. ออกชุด Token ใหม่ (Rotation)
-      AM->>AM: newAccessToken = JWT.sign({jti=new_uuid, sub=userId...}, 15m)
-      AM->>AM: newRefreshToken = JWT.sign({sub=userId}, 30d)
-      AM->>AM: newHashedRT = hash(newRefreshToken)
+    alt token ไม่ถูกต้อง หรือหมดอายุ
+        AM-->>API: InvalidTokenError
+        API-->>Client: 401 Unauthorized {error, action: "re-login"}
+    else token ถูกต้อง
+        Note over AM: ดึง userId จาก token
+        AM->>AM: extract userId
+        AM->>AM: hashedInput = hash(refreshToken)
 
-      Note over AM,Cache: 5. บันทึก Refresh Token ตัวใหม่ทับของเดิม
-      AM->>Cache: SET user:{userId}:active_refresh_token {newHashedRT} EX 2592000
+        Note over AM,Cache: ตรวจสอบกับ Redis (Token ล่าสุดของ user)
+        AM->>Cache: GET user:{userId}:refresh_token
+        Cache-->>AM: storedHash / not found
 
-      AM-->>API: {accessToken, refreshToken}
-      API-->>Client: 200 OK {accessToken: newAccessToken, refreshToken: newRefreshToken}
+        alt ไม่พบ หรือ hash ไม่ตรง (Reuse Attack)
+            Note over AM: ตรวจพบการใช้ token ซ้ำ (อาจโดนขโมย)
+            Note over AM,Cache: ลบ refreshToken ออกจาก redis
+            AM->>Cache: DEL user:{userId}:refresh_token
+            Cache-->>AM: OK
+
+            AM-->>API: RevokedTokenError
+            API-->>Client: 401 Unauthorized {error, action: "re-login"}
+        else token ถูกต้อง
+            Note over AM,SS: โหลดข้อมูล Subscription ล่าสุด
+            AM->>SS: getSubscription(userId)
+            SS-->>AM: subscription / null
+
+            AM->>AM: hasActiveSub = (status=ACTIVE && endDate > now)
+
+            Note over AM: สร้าง Access Token ใหม่ (15 นาที)
+            AM->>AM: newAccessToken = signJWT(userId, jti, hasActiveSub)
+
+            Note over AM: สร้าง Refresh Token ใหม่ (Rotation)
+            AM->>AM: newRefreshToken = signJWT(userId, exp=30d)
+            AM->>AM: newHash = hash(newRefreshToken)
+
+            Note over AM,Cache: บันทึก Refresh Token ตัวใหม่
+            AM->>Cache: SET user:{userId}:refresh_token newHash EX 30d
+            Cache-->>AM: OK
+
+            AM-->>API: {newAccessToken, newRefreshToken}
+            API-->>Client: 200 OK {accessToken, refreshToken}
+        end
     end
-  end
 ```
 
 ## 2.4 Logout (FR 2.1 — Client-side)
 
 ```mermaid
 sequenceDiagram
-  actor Client
-  participant API as API Gateway
-  participant AM as AuthManager
-  participant Cache as Redis Cache
+    autonumber
+    actor Client
+    participant API as API Gateway
+    participant AM as AuthManager
+    participant Cache as Redis Cache
 
-  Client->>API: POST /logout + Authorization: Bearer <token>
-  API->>AM: logout(accessToken, userId)
+    Note over Client,API: Logout ออกจากระบบ
 
-  AM->>AM: decode -> extract jti, exp
-  AM->>AM: remainingTime = exp - now
+    Client->>API: POST /logout + Authorization: Bearer <accessToken>
 
-  Note over AM,Cache: 1. แบน Access Token ใบนี้ทันที
-  AM->>Cache: SET blacklist:token:{jti} "1" EX {remainingTime}
+    API->>AM: logout(accessToken)
 
-  Note over AM,Cache: 2. ทำลาย Refresh Token ป้องกันการขอใหม่
-  AM->>Cache: DEL user:{userId}:refresh_tokens
+    Note over AM: ตรวจสอบ token ก่อน logout
+    AM->>AM: verify(accessToken)
+    AM-->>API: valid / invalid
 
-  AM-->>API: success
-  API-->>Client: 204 No Content
+    alt token ไม่ถูกต้อง หรือหมดอายุ
+        API-->>Client: 401 Unauthorized {error}
+    else token ถูกต้อง
+        Note over AM: ดึง userId, jti และ exp จาก token
+        AM->>AM: extract userId, jti, exp
+        AM->>AM: remainingTime = exp - now
 
-  Note over Client: Client ลบ Token ออกจาก localStorage / Cookie
+        Note over AM,Cache: 1. ใส่ Access Token ลง blacklist
+        AM->>Cache: SET blacklist:token:{jti} "1" EX remainingTime
+        Cache-->>AM: OK
+
+        Note over AM,Cache: 2. ลบ Refresh Token ของ user
+        AM->>Cache: DEL user:{userId}:refresh_token
+        Cache-->>AM: OK
+
+        AM-->>API: success
+        API-->>Client: 204 No Content
+    end
+
+    Note over Client: Client ลบ token ออกจาก storage (localStorage / cookie)
 ```
 
 ---

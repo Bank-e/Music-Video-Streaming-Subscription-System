@@ -4,6 +4,7 @@
 
 ```mermaid
 sequenceDiagram
+    autonumber
     actor Client
     participant API
     participant AM as AuthManager
@@ -48,6 +49,7 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
+    autonumber
     actor Client
     participant API
     participant AM as AuthManager

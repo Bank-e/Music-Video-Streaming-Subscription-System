@@ -4,44 +4,88 @@
 
 ```mermaid
 sequenceDiagram
+    autonumber
     actor Creator
     participant API
     participant AM as AuthManager
-    participant DB
     participant OS as ObjectStorage (S3)
+    participant DB as Database
 
-    Note over Creator,OS: Phase 1: Request Upload URL
-    Creator->>API: POST /content/request-upload (Bearer, {type, extension})
-    API->>AM: verify(token)
+    Note over Creator,OS: Phase 1: ขอ URL สำหรับอัปโหลด
+
+    Creator->>API: POST /content/request-upload {type, extension} + Bearer
+    API->>AM: verifyToken
+    AM-->>API: principal / invalid
+
+    alt token ไม่ถูกต้อง
+        API-->>Creator: 401 Unauthorized
+    else token ถูกต้อง
+        alt ไม่มีสิทธิ์ (เช่น ไม่มี subscription)
+            API-->>Creator: 403 Forbidden
+        else มีสิทธิ์
+            Note over API: สร้าง objectKey แบบ unique (เช่น UUID + extension)
+            API->>OS: Generate Pre-signed URL (PUT, expiry=15m, content-type)
+            OS-->>API: presignedUrl, objectKey
+
+            Note over API: บันทึกสถานะ "รอ confirm"
+            API->>DB: INSERT upload_session (objectKey, userId, status=PENDING)
+            DB-->>API: success
+
+            API-->>Creator: 200 OK {presignedUrl, objectKey}
+        end
+    end
+
+    Note over Creator,OS: Phase 2: อัปโหลดไฟล์จริง
+
+    Creator->>OS: PUT presignedUrl (Binary File)
+    OS-->>Creator: 200 OK
+
+    Note over Creator,API: Phase 3: ยืนยันและบันทึกข้อมูล
+
+    Creator->>API: POST /content/confirm {objectKey, title, metadata} + Bearer
+
+    API->>AM: verifyToken
     AM-->>API: principal
 
-    alt !principal.hasActiveSubscription
+    Note over API,DB: ตรวจสอบว่า objectKey นี้เป็นของ user จริง
+    API->>DB: Find upload_session by objectKey + userId
+    DB-->>API: session / not found
+
+    alt ไม่พบ หรือไม่ใช่เจ้าของ
         API-->>Creator: 403 Forbidden
-    else มีสิทธิ์
-        API->>OS: Generate Pre-signed URL (PUT, expiry=15m)
-        OS-->>API: presignedUrl, objectKey
-        API-->>Creator: 200 OK {presignedUrl, objectKey}
-    end
+    else valid
 
-    Note over Creator,OS: Phase 2: Direct Upload
-    Creator->>OS: PUT presignedUrl (Binary File)
-    OS-->>Creator: 200 OK (Upload Success)
+        Note over API,OS: (สำคัญ) ตรวจสอบว่าไฟล์มีอยู่จริง
+        API->>OS: HEAD objectKey
+        OS-->>API: exists / not found
 
-    Note over Creator,DB: Phase 3: Confirm & Save Metadata
-    Creator->>API: POST /content/confirm (Bearer, {objectKey, title, metadata})
-    API->>DB: BEGIN TX
-    API->>DB: INSERT contents(contentId, objectKey, ...)
-    alt type=video
-        API->>DB: INSERT videos(...)
-    end
-    API->>DB: COMMIT
-    alt Commit Success
-        DB-->>API: OK (Transaction Committed)
-        API-->>Creator: 201 Created (Content Ready for Transcoding)
-    else Commit Failed (เช่น ขัดข้องที่ DB)
-        DB-->>API: Error
-        API->>DB: ROLLBACK
-        API-->>Creator: 500 Internal Server Error
+        alt file ไม่อยู่ (upload fail)
+            API-->>Creator: 400 Bad Request {error: "file not uploaded"}
+        else file อยู่จริง
+
+            API->>DB: BEGIN TX
+
+            Note over API: สร้าง content หลัก
+            API->>DB: INSERT contents(contentId, objectKey, title, ...)
+
+            alt type = video
+                API->>DB: INSERT videos(...)
+            end
+
+            Note over API: อัปเดต upload_session = COMPLETED
+            API->>DB: UPDATE upload_session SET status=COMPLETED
+
+            API->>DB: COMMIT
+
+            alt commit สำเร็จ
+                DB-->>API: OK
+                API-->>Creator: 201 Created
+            else commit ล้มเหลว
+                DB-->>API: Error
+                API->>DB: ROLLBACK
+                API-->>Creator: 500 Internal Server Error
+            end
+        end
     end
 ```
 
@@ -49,36 +93,49 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
+    autonumber
     actor Client
     participant API
     participant AM as AuthManager
-    participant Cache as Redis (Cache)
+    participant Cache as Redis
     participant CS as ContentService
-    participant DB
+    participant DB as Database
 
-    Note over Client,API: เพิ่ม cursor (หรือ page) และ limit เสมอ
+    Note over Client,API: ดึงรายการ content (รองรับ pagination)
+
     Client->>API: GET /contents?type=video&cursor=abc&limit=20
-    API->>AM: verify(token)
-    AM-->>API: principal
 
-    API->>Cache: GET cache:contents:video:abc:20
+    API->>AM: verifyToken
+    AM-->>API: principal / invalid
 
-    alt Cache Hit (มีข้อมูลใน Cache)
-        Cache-->>API: JSON List<Content>
-        API-->>Client: 200 OK [contents] (ตอบกลับทันที)
-    else Cache Miss (ไม่มีข้อมูล)
-        Cache-->>API: null
-        API->>CS: getContentsByType("video", cursor="abc", limit=20)
+    alt token ไม่ถูกต้อง
+        API-->>Client: 401 Unauthorized
+    else valid
 
-        Note over CS,DB: เลิกใช้ SELECT * และบังคับ LIMIT
-        CS->>DB: SELECT c.id, c.title, v.thumbnailUrl FROM contents c JOIN videos v ... WHERE id > cursor LIMIT 20
-        DB-->>CS: List<Content>
-        CS-->>API: list (id, title, thumbnailUrl)
+        Note over API: สร้าง cacheKey จาก parameter ทั้งหมด
+        API->>Cache: GET cache:contents:video:abc:20
 
-        Note over API,Cache: เซฟลง Cache เพื่อให้คนต่อไปโหลดเร็วขึ้น (ตั้งเวลาหมดอายุ TTL)
-        API->>Cache: SETEX cache:contents:video:abc:20 (list, TTL=5 mins)
+        alt Cache Hit
+            Cache-->>API: cachedList
+            API-->>Client: 200 OK {items, nextCursor}
 
-        API-->>Client: 200 OK [contents]
+        else Cache Miss
+            Cache-->>API: null
+
+            API->>CS: getContents(type, cursor, limit)
+
+            Note over CS,DB: ใช้ cursor-based pagination (ไม่ใช้ OFFSET)
+            CS->>DB: SELECT id, title, thumbnailUrl\nFROM contents\nWHERE type='video' AND id > cursor\nORDER BY id ASC\nLIMIT 20
+            DB-->>CS: rows
+
+            Note over CS: คำนวณ nextCursor จาก item สุดท้าย
+            CS-->>API: {items, nextCursor}
+
+            Note over API,Cache: เก็บ cache พร้อม TTL
+            API->>Cache: SETEX cache:contents:video:abc:20 {items, nextCursor} TTL=300s
+
+            API-->>Client: 200 OK {items, nextCursor}
+        end
     end
 ```
 
@@ -86,6 +143,7 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
+    autonumber
     actor Client
     participant API
     participant AM as AuthManager
@@ -132,6 +190,7 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
+    autonumber
     actor Creator
     participant API
     participant AM as AuthManager
@@ -172,6 +231,7 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
+    autonumber
     actor Creator
     participant API
     participant AM as AuthManager
@@ -215,6 +275,7 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
+    autonumber
     participant MQ as Message Queue
     participant Worker as Background Worker
     participant OS as Object Storage (S3)
