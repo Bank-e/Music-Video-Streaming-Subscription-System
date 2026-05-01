@@ -1,0 +1,69 @@
+erDiagram
+
+USER {
+  uuid user_id PK
+  varchar email
+  varchar password_hash
+  varchar status
+  timestamp created_at
+}
+
+USER_PROFILE {
+  uuid profile_id PK
+  uuid user_id FK
+  varchar full_name
+  varchar phone
+  text avatar_url
+  timestamp updated_at
+}
+
+AUTH_SESSION {
+  uuid session_id PK
+  uuid user_id FK
+  text access_token
+  timestamp access_token_expires_at
+  text refresh_token
+  timestamp refresh_token_expires_at
+  varchar session_status
+}
+
+SUBSCRIPTION {
+  uuid subscription_id PK
+  uuid user_id FK
+  varchar status
+  date start_date
+  date expiry_date
+  boolean cancel_at_period_end
+}
+
+PAYMENT {
+  uuid payment_id PK
+  uuid subscription_id FK
+  decimal amount
+  varchar payment_status
+  varchar transaction_ref
+  timestamp paid_at
+}
+
+CONTENT {
+  uuid content_id PK
+  varchar title
+  varchar content_type
+  varchar category
+  varchar validation_status
+}
+
+VIEWING_HISTORY {
+  uuid history_id PK
+  uuid user_id FK
+  uuid content_id FK
+  integer resume_position
+  timestamp last_viewed_at
+}
+
+USER ||--|| USER_PROFILE : has
+USER ||--o{ AUTH_SESSION : owns
+USER ||--o{ SUBSCRIPTION : subscribes
+SUBSCRIPTION ||--o{ PAYMENT : paid_by
+USER ||--o{ VIEWING_HISTORY : watches
+CONTENT ||--o{ VIEWING_HISTORY : viewed_in
