@@ -1,0 +1,53 @@
+@startuml
+left to right direction
+
+actor User
+
+rectangle "Music-Video-Streaming-Subscription-System" {
+
+  ' ===== User & Authentication Service =====
+  rectangle "User & Authentication Service" {
+    (Register)
+    (Login / Logout)
+    (Manage Profile)
+  }
+
+  ' ===== Subscription & Payment Service =====
+  rectangle "Subscription & Payment Service" {
+    (Make Payment)
+    (View Subscription Status)
+  }
+
+  ' ===== Content Service =====
+  rectangle "Content Service" {
+    (Browse/Search Content)
+    (View Content)
+    (Play Music-Video)
+
+    (View History)
+    (Upload Content)
+    (Edit/Delete Content)
+    (Watched Progress Bar)
+  }
+
+  ' ===== User Relationships =====
+  User --> (Register)
+  User --> (Login / Logout)
+  User --> (Manage Profile)
+
+  User --> (Make Payment)
+  User --> (View Subscription Status)
+
+  User --> (Browse/Search Content)
+  User --> (View History)
+  User --> (Upload Content)
+  User --> (Edit/Delete Content)
+  User --> (Watched Progress Bar)
+
+  ' ===== Include Relationships =====
+  (Browse/Search Content) .> (View Content) : <<include>>
+  (View Content) .> (Play Music-Video) : <<include>>
+
+}
+
+@enduml
