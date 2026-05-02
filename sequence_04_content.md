@@ -172,7 +172,6 @@ sequenceDiagram
             Cache-->>API: null
 
             API->>CS: getContentById(id)
-            CS-->>API: processing
 
             CS->>DB: SELECT cdnBaseUrl, isPublished FROM contents WHERE contentId=?
             DB-->>CS: content
