@@ -189,27 +189,52 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-  actor Client
-  participant API as API Gateway
-  participant AM as AuthManager
-  participant SS as SubscriptionService
-  participant PG as PaymentGateway
-  participant Ext as Stripe/Omise
-  participant DB
+    autonumber
+    actor Client
+    participant API as API Gateway
+    participant AM as AuthManager
+    participant SS as SubscriptionService
+    participant PG as PaymentGateway
+    participant Ext as External Payment
+    participant DB as Database
 
-  Client->>API: POST /subscription/renew (Bearer)
-  API->>AM: verify(token)
-  AM-->>API: principal
-  API->>SS: renew(principal)
-  SS->>DB: SELECT subscription (ACTIVE or EXPIRED) WHERE userId=?
-  DB-->>SS: sub
-  SS->>PG: createPaymentIntent(amount, currency)
-  PG->>Ext: POST /checkout/session
-  Ext-->>PG: {checkoutUrl, intentId}
-  PG->>DB: INSERT payments(subscriptionId=sub.id, externalTransactionId=intentId, PENDING)
-  DB-->>PG: success
-  PG-->>SS: checkoutUrl
-  SS-->>API: checkoutUrl
-  API-->>Client: 200 OK {redirectUrl}
-  Note over Client,Ext: หลัง webhook success → onPaymentSuccess ต่อ endDate
+    Client->>API: POST /subscription/renew + Bearer Token
+    API->>AM: verifyToken
+    AM-->>API: principal
+
+    API->>SS: renew(userId)
+
+    SS->>DB: Find subscription (ACTIVE or EXPIRED)
+    DB-->>SS: subscription
+
+    alt ยัง ACTIVE และ cancelAtPeriodEnd = true
+        Note over SS: Resume (ไม่ต้องจ่ายเงิน)
+        SS->>DB: Update cancelAtPeriodEnd = false
+        DB-->>SS: success
+        SS-->>API: success
+        API-->>Client: 200 OK {message: "Subscription resumed"}
+        
+    else ต้องจ่ายเงิน (EXPIRED หรืออยากต่อเพิ่ม)
+        Note over SS: คำนวณ endDate ใหม่
+        alt ยังไม่หมดอายุ
+            SS->>SS: newEndDate = endDate + cycle
+        else หมดอายุแล้ว
+            SS->>SS: newEndDate = now + cycle
+        end
+
+        SS->>PG: createPaymentIntent(amount, subscriptionId)
+
+        PG->>Ext: Create checkout session
+        Ext-->>PG: checkoutUrl, transactionId
+
+        PG->>DB: Create payment (PENDING)
+        DB-->>PG: success
+
+        PG-->>SS: checkoutUrl
+        SS-->>API: checkoutUrl
+        API-->>Client: 200 OK {redirectUrl}
+
+        Note over SS: เมื่อ webhook success
+        SS->>DB: Update subscription\n(endDate = newEndDate, status=ACTIVE)
+    end
 ```
